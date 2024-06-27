@@ -132,6 +132,10 @@ public:
     toggle.update();
   }
 
+  void refresh() {
+    toggle.togglePosition();
+  }
+
 signals:
   void toggleFlipped(bool state);
 
@@ -221,16 +225,24 @@ public:
       button->setMinimumWidth(minimum_button_width);
       hlayout->addWidget(button);
       button_group->addButton(button, i);
+      button->installEventFilter(this);
     }
 
     QObject::connect(button_group, QOverload<int>::of(&QButtonGroup::buttonClicked), [=](int id) {
       params.put(key, std::to_string(id));
+      emit buttonClicked(id);
     });
   }
 
   void setEnabled(bool enable) {
     for (auto btn : button_group->buttons()) {
       btn->setEnabled(enable);
+    }
+  }
+
+  void setEnabledButtons(int id, bool enable) {
+    if (QAbstractButton *button = button_group->button(id)) {
+      button->setEnabled(enable);
     }
   }
 
@@ -245,6 +257,21 @@ public:
 
   void showEvent(QShowEvent *event) override {
     refresh();
+  }
+
+signals:
+  void buttonClicked(int id);
+  void disabledButtonClicked(int id);
+
+protected:
+  bool eventFilter(QObject *obj, QEvent *event) override {
+    if (event->type() == QEvent::MouseButtonPress) {
+      QPushButton *button = qobject_cast<QPushButton *>(obj);
+      if (button && !button->isEnabled()) {
+        emit disabledButtonClicked(button_group->id(button));
+      }
+    }
+    return AbstractControl::eventFilter(obj, event);
   }
 
 private:
