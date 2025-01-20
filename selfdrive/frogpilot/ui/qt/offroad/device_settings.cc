@@ -9,6 +9,7 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
     {"LowVoltageShutdown", tr("Low Battery Shutdown Threshold"), tr("Manages the threshold for shutting down the device to protect the car's battery from excessive drain and potential damage."), ""},
     {"NoLogging", tr("Turn Off Data Tracking"), QString("<b>%1</b><br><br>%2").arg(tr("WARNING: This will prevent your drives from being recorded and the data will be unobtainable!")).arg(tr("Disables all data tracking to improve privacy.")), ""},
     {"NoUploads", tr("Turn Off Data Uploads"), QString("<b>%1</b><br><br>%2").arg(tr("WARNING: This will prevent your drives from appearing on comma connect which may impact debugging and support!")).arg(tr("Stops the device from sending any data to the servers.")), ""},
+    {"UseKonikServer", tr("Use Konik.ai's Server Instead of Comma's"), tr("Upload your driving data to Konik.ai's server instead of comma's."), ""},
 
     {"ScreenManagement", tr("Screen Settings"), tr("Screen behavior settings."), "../frogpilot/assets/toggle_icons/icon_light.png"},
     {"ScreenBrightness", tr("Screen Brightness (Offroad)"), tr("Controls the screen brightness when you're not driving."), ""},

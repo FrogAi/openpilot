@@ -266,6 +266,8 @@ typedef struct UIScene {
   int steering_angle_deg;
   int tethering_config;
 
+  std::optional<bool> use_konik_server;
+
   std::string speed_limit_source;
 
   QColor lane_lines_color;

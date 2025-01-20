@@ -3,6 +3,7 @@ import json
 import math
 import random
 
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -10,6 +11,7 @@ from cereal import car, log
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.numpy_fast import clip, interp
 from openpilot.common.params import Params, UnknownKeyName
+from openpilot.common.time import system_time_valid
 from openpilot.selfdrive.controls.lib.desire_helper import LANE_CHANGE_SPEED_MIN
 from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.system.hardware.power_monitoring import VBATT_PAUSE_CHARGING
@@ -56,6 +58,9 @@ def has_prime():
 
 def update_frogpilot_toggles():
   params_memory.put_bool("FrogPilotTogglesUpdated", True)
+
+def use_konik_server():
+  return params.get("GitBranch", encoding='utf-8') == "FrogPilot-Testing" and (date.today() - date(2025, 1, 6)).days // 7 % 2 == 0
 
 frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("AccelerationPath", "1", 2),
@@ -317,6 +322,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("TurnDesires", "0", 2),
   ("UnlimitedLength", "1", 2),
   ("UnlockDoors", "1", 0),
+  ("UseKonikServer", "0", 2),
   ("UserCurvature", "", 1),
   ("UseSI", "1", 3),
   ("UseVienna", "0", 2),
@@ -349,6 +355,8 @@ class FrogPilotVariables:
 
     self.frogpilot_toggles.frogs_go_moo = Path("/persist/frogsgomoo.py").is_file()
     self.frogpilot_toggles.block_user = self.development_branch and not self.frogpilot_toggles.frogs_go_moo
+
+    self.use_konik_server = params.get_bool("UseKonikServer")
 
     for k, v, _ in frogpilot_default_params:
       params_default.put(k, v)
@@ -741,6 +749,8 @@ class FrogPilotVariables:
     toyota_doors = car_make == "toyota" and (params.get_bool("ToyotaDoors") if tuning_level >= level["ToyotaDoors"] else default.get_bool("ToyotaDoors"))
     toggle.lock_doors = toyota_doors and (params.get_bool("LockDoors") if tuning_level >= level["LockDoors"] else default.get_bool("LockDoors"))
     toggle.unlock_doors = toyota_doors and (params.get_bool("UnlockDoors") if tuning_level >= level["UnlockDoors"] else default.get_bool("UnlockDoors"))
+
+    toggle.use_konik_server = self.use_konik_server or use_konik_server() and system_time_valid() and not started
 
     toggle.volt_sng = toggle.car_model == "CHEVROLET_VOLT" and (params.get_bool("VoltSNG") if tuning_level >= level["VoltSNG"] else default.get_bool("VoltSNG"))
 
