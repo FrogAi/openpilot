@@ -37,7 +37,8 @@ class SmartTurnSpeedController:
       self.cached_entries = np.vstack([self.data[speed] for speed in speeds_in_range])
       self.cached_speeds = np.array(speeds_in_range)
     else:
-      self.cached_entries = self.cached_speeds = None
+      self.cached_entries = None
+      self.cached_speeds = None
 
     self.last_cached_speed = v_ego
 

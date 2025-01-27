@@ -304,6 +304,8 @@ static void update_state(UIState *s) {
     scene.speed_limit_overridden = frogpilotPlan.getSlcOverridden();
     scene.speed_limit_overridden_speed = frogpilotPlan.getSlcOverriddenSpeed();
     scene.speed_limit_source = frogpilotPlan.getSlcSpeedLimitSource().cStr();
+    scene.stsc_controlling_curve = frogpilotPlan.getStscControllingCurve();
+    scene.stsc_speed = frogpilotPlan.getStscSpeed();
     scene.unconfirmed_speed_limit = frogpilotPlan.getUnconfirmedSlcSpeedLimit();
     scene.upcoming_speed_limit = frogpilotPlan.getUpcomingSLCSpeedLimit();
     scene.vtsc_controlling_curve = frogpilotPlan.getVtscControllingCurve();
@@ -439,11 +441,12 @@ void ui_update_frogpilot_params(UIState *s) {
   scene.stopped_timer = scene.frogpilot_toggles.value("stopped_timer").toBool();
   scene.storage_left_metrics = scene.frogpilot_toggles.value("storage_left_metrics").toBool();
   scene.storage_used_metrics = scene.frogpilot_toggles.value("storage_used_metrics").toBool();
+  scene.stsc_enabled = scene.frogpilot_toggles.value("smart_turn_speed_controller").toBool();
   scene.tethering_config = scene.frogpilot_toggles.value("tethering_config").toDouble();
   scene.unlimited_road_ui_length = scene.frogpilot_toggles.value("unlimited_road_ui_length").toBool();
   scene.use_si_metrics = scene.frogpilot_toggles.value("use_si_metrics").toBool();
   scene.use_wheel_speed = scene.frogpilot_toggles.value("use_wheel_speed").toBool();
-  scene.vtsc_enabled = scene.frogpilot_toggles.value("vision_turn_controller").toBool();
+  scene.vtsc_enabled = scene.frogpilot_toggles.value("vision_turn_speed_controller").toBool();
 
   if (scene.tethering_config == 1) {
     s->wifi->setTetheringEnabled(true);

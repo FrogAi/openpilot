@@ -110,7 +110,9 @@ class FrogPilotPlanner:
     frogpilotPlan.tFollow = float(self.frogpilot_following.t_follow)
 
     frogpilotPlan.mtscSpeed = float(self.frogpilot_vcruise.mtsc_target)
-    frogpilotPlan.vtscControllingCurve = bool(self.frogpilot_vcruise.mtsc_target > self.frogpilot_vcruise.vtsc_target)
+    frogpilotPlan.stscControllingCurve = bool(self.frogpilot_vcruise.stsc_target < min(self.frogpilot_vcruise.mtsc_target, self.frogpilot_vcruise.vtsc_target))
+    frogpilotPlan.stscSpeed = float(self.frogpilot_vcruise.stsc_target)
+    frogpilotPlan.vtscControllingCurve = bool(self.frogpilot_vcruise.vtsc_target < min(self.frogpilot_vcruise.mtsc_target, self.frogpilot_vcruise.stsc_target))
     frogpilotPlan.vtscSpeed = float(self.frogpilot_vcruise.vtsc_target)
 
     frogpilotPlan.desiredFollowDistance = self.frogpilot_following.desired_follow_distance
