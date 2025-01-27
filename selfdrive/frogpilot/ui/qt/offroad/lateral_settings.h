@@ -22,8 +22,8 @@ private:
 
   bool hasAutoTune;
   bool hasNNFFLog;
+  bool isHKG;
   bool isPIDCar;
-  bool isSubaru;
   bool liveValid;
   bool started;
 
@@ -52,4 +52,7 @@ private:
   QJsonObject frogpilotToggleLevels;
 
   Params params;
+
+  ToggleControl *aolLKASToggle;
+  ToggleControl *aolMainToggle;
 };

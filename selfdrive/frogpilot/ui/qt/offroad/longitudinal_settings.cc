@@ -201,8 +201,8 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
       });
       longitudinalToggle = curveControlToggle;
     } else if (param == "CurveDetectionMethod") {
-      std::vector<QString> curveDetectionToggles{"MapTurnControl", "VisionTurnControl"};
-      std::vector<QString> curveDetectionToggleNames{tr("Map Based"), tr("Vision")};
+      std::vector<QString> curveDetectionToggles{"MapTurnControl", "SmartTurnControl", "VisionTurnControl"};
+      std::vector<QString> curveDetectionToggleNames{tr("Map Based"), tr("Smart"), tr("Vision")};
       curveDetectionToggle = new FrogPilotButtonToggleControl(param, title, desc, curveDetectionToggles, curveDetectionToggleNames, false, true);
       QObject::connect(curveDetectionToggle, &FrogPilotButtonToggleControl::buttonClicked, [this](int index) {
         std::set<QString> modifiedCurveSpeedKeys = curveSpeedKeys;

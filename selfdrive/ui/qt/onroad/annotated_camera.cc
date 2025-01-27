@@ -134,6 +134,7 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
   QString speedLimitOffsetStr = (slcSpeedLimitOffset == 0) ? "–" : QString::number(slcSpeedLimitOffset, 'f', 0).prepend((slcSpeedLimitOffset > 0) ? "+" : "");
   QString speedStr = QString::number(std::nearbyint(speed));
   QString setSpeedStr = is_cruise_set ? QString::number(std::nearbyint(setSpeed)) : "–";
+  QString stscSpeedStr = (stscSpeed > 1) ? QString::number(std::nearbyint(stscSpeed)) + speedUnit : "–";
   QString vtscSpeedStr = (vtscSpeed > 1) ? QString::number(std::nearbyint(vtscSpeed)) + speedUnit : "–";
 
   // Draw outer box + border to contain set speed and speed limit
@@ -189,11 +190,15 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
     p.drawText(set_speed_rect.adjusted(0, 77, 0, 0), Qt::AlignTop | Qt::AlignHCenter, setSpeedStr);
   }
 
-  if (!speedLimitChanged && is_cruise_set && (setSpeed - mtscSpeed > 1 || setSpeed - vtscSpeed > 1) && !hideCSCUI) {
+  if (!speedLimitChanged && is_cruise_set && (setSpeed - mtscSpeed > 1 || setSpeed - stscSpeed > 1 || setSpeed - vtscSpeed > 1) && !hideCSCUI) {
     std::function<void(const QRect&, const QString&, bool)> drawCurveSpeedControl = [&](const QRect &rect, const QString &speedStr, bool isMtsc) {
-      if (isMtsc && !vtscControllingCurve) {
+      if (isMtsc && !stscControllingCurve && !vtscControllingCurve) {
         p.setPen(QPen(greenColor(), 10));
         p.setBrush(greenColor(166));
+        p.setFont(InterFont(45, QFont::Bold));
+      } else if (!isMtsc && stscControllingCurve) {
+        p.setPen(QPen(blueColor(), 10));
+        p.setBrush(blueColor(166));
         p.setFont(InterFont(45, QFont::Bold));
       } else if (!isMtsc && vtscControllingCurve) {
         p.setPen(QPen(redColor(), 10));
@@ -208,7 +213,7 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
       p.drawRoundedRect(rect, 24, 24);
 
       p.setPen(QPen(whiteColor(), 6));
-      p.drawText(rect.adjusted(20, 0, 0, 0), Qt::AlignVCenter | Qt::AlignLeft, speedStr);
+      p.drawText(rect, Qt::AlignVCenter | Qt::AlignLeft, speedStr);
     };
 
     QRect curveSpeedRect(QPoint(set_speed_rect.right() + 25, set_speed_rect.top()), QSize(default_size.width() * 1.25, default_size.width() * 1.25));
@@ -218,16 +223,16 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
     p.drawPixmap(curveSpeedRect, scaledCurveSpeedIcon);
 
     if (mtscEnabled) {
-      QRect mtscRect(curveSpeedRect.topLeft() + QPoint(0, curveSpeedRect.height() + 10), QSize(curveSpeedRect.width(), vtscControllingCurve ? 50 : 100));
+      QRect mtscRect(curveSpeedRect.topLeft() + QPoint(0, curveSpeedRect.height() + 10), QSize(curveSpeedRect.width(), stscControllingCurve || vtscControllingCurve ? 50 : 100));
       drawCurveSpeedControl(mtscRect, mtscSpeedStr, true);
 
-      if (vtscEnabled) {
-        QRect vtscRect(mtscRect.topLeft() + QPoint(0, mtscRect.height() + 20), QSize(mtscRect.width(), vtscControllingCurve ? 100 : 50));
-        drawCurveSpeedControl(vtscRect, vtscSpeedStr, false);
+      if (stscEnabled || vtscEnabled) {
+        QRect vtscRect(mtscRect.topLeft() + QPoint(0, mtscRect.height() + 20), QSize(mtscRect.width(), stscControllingCurve || vtscControllingCurve ? 100 : 50));
+        drawCurveSpeedControl(vtscRect, stscControllingCurve ? stscSpeedStr : vtscSpeedStr, false);
       }
-    } else if (vtscEnabled) {
+    } else if (stscEnabled || vtscEnabled) {
       QRect vtscRect(curveSpeedRect.topLeft() + QPoint(0, curveSpeedRect.height() + 10), QSize(curveSpeedRect.width(), 150));
-      drawCurveSpeedControl(vtscRect, vtscSpeedStr, false);
+      drawCurveSpeedControl(vtscRect, stscControllingCurve ? stscSpeedStr : vtscSpeedStr, false);
     }
   }
 
@@ -259,7 +264,7 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
     }
     p.restore();
 
-    if (speedLimitChanged && !(setSpeed - mtscSpeed > 1 || setSpeed - vtscSpeed > 1)) {
+    if (speedLimitChanged && !(setSpeed - mtscSpeed > 1 || setSpeed - stscSpeed > 1 || setSpeed - vtscSpeed > 1)) {
       QRect new_sign_rect(sign_rect.translated(sign_rect.width() + 25, 0));
       new_sign_rect.setWidth(newSpeedLimitStr.size() >= 3 ? 200 : 175);
 
@@ -1116,6 +1121,10 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
     standstillDuration = 0;
     standstillTimer.invalidate();
   }
+
+  stscControllingCurve = scene.stsc_controlling_curve;
+  stscEnabled = scene.stsc_enabled;
+  stscSpeed = stscEnabled ? scene.stsc_speed * speedConversion : setSpeed;
 
   trafficModeActive = scene.traffic_mode_active;
 
