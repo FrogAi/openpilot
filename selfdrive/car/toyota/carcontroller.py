@@ -89,6 +89,7 @@ class CarController(CarControllerBase):
     self.secoc_prev_reset_counter = 0
 
     # FrogPilot variables
+    self.stock_integral_gain = self.long_pid._k_i
     self.stock_max_accel = self.params.ACCEL_MAX
 
     self.doors_locked = False
@@ -100,9 +101,11 @@ class CarController(CarControllerBase):
   def update(self, CC, CS, now_nanos, frogpilot_toggles):
     if frogpilot_toggles.sport_plus:
       self.params.ACCEL_MAX = min(frogpilot_toggles.max_desired_acceleration, get_max_allowed_accel(CS.out.vEgo))
+      self.long_pid._k_i = [[2., 5.], [0.5, 0.3]]
       self.long_pid.pos_limit = self.params.ACCEL_MAX
     else:
       self.params.ACCEL_MAX = min(frogpilot_toggles.max_desired_acceleration, self.stock_max_accel)
+      self.long_pid._k_i = self.stock_integral_gain
       self.long_pid.pos_limit = self.params.ACCEL_MAX
 
     actuators = CC.actuators

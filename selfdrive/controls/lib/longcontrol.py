@@ -101,6 +101,7 @@ class LongControl:
 
   def update(self, active, CS, a_target, should_stop, accel_limits, frogpilot_toggles):
     """Update longitudinal control. This updates the state machine and runs a PID loop"""
+    self.pid._k_i = [frogpilot_toggles.kiBP, frogpilot_toggles.kiV]
     self.pid.neg_limit = accel_limits[0]
     self.pid.pos_limit = accel_limits[1]
 
