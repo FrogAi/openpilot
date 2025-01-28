@@ -60,6 +60,8 @@ private:
   QMap<QString, QString> modelFileToNameMap;
   QMap<QString, QString> modelFileToNameMapProcessed;
 
+  QString currentModel;
+
   QStringList availableModels;
   QStringList availableModelNames;
   QStringList downloadableModels;

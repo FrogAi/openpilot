@@ -54,7 +54,7 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
       for (int i = 0; i <= 101; ++i) {
         brightnessLabels[i] = i == 101 ? tr("Auto") : i == 0 ? tr("Screen Off") : QString::number(i) + "%";
       }
-      deviceToggle = new FrogPilotParamValueControl(param, title, desc, icon, minBrightness, 101, QString(), brightnessLabels, 1, false, true);
+      deviceToggle = new FrogPilotParamValueControl(param, title, desc, icon, minBrightness, 101, QString(), brightnessLabels);
     } else if (param == "ScreenTimeout" || param == "ScreenTimeoutOnroad") {
       deviceToggle = new FrogPilotParamValueControl(param, title, desc, icon, 5, 60, tr(" seconds"));
 
@@ -74,20 +74,13 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
   static_cast<ParamControl*>(toggles["NoLogging"])->setConfirmation(true, false);
   static_cast<ParamControl*>(toggles["NoUploads"])->setConfirmation(true, false);
 
-
-  FrogPilotParamValueControl *screenBrightnessToggle = static_cast<FrogPilotParamValueControl*>(toggles["ScreenBrightness"]);
-  QObject::connect(screenBrightnessToggle, &FrogPilotParamValueControl::valueChanged, [this](int value) {
-    if (!started) {
-      uiState()->scene.screen_brightness = value;
-    }
-  });
-
-  FrogPilotParamValueControl *screenBrightnessOnroadToggle = static_cast<FrogPilotParamValueControl*>(toggles["ScreenBrightnessOnroad"]);
-  QObject::connect(screenBrightnessOnroadToggle, &FrogPilotParamValueControl::valueChanged, [this](int value) {
-    if (started) {
-      uiState()->scene.screen_brightness_onroad = value;
-    }
-  });
+  std::set<QString> brightnessKeys = {"ScreenBrightness", "ScreenBrightnessOnroad"};
+  for (const QString &key : brightnessKeys) {
+    FrogPilotParamValueControl *paramControl = static_cast<FrogPilotParamValueControl*>(toggles[key]);
+    QObject::connect(paramControl, &FrogPilotParamValueControl::valueChanged, [](int value) {
+      Hardware::set_brightness(value);
+    });
+  }
 
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotDevicePanel::hideToggles);
   QObject::connect(uiState(), &UIState::uiUpdate, this, &FrogPilotDevicePanel::updateState);

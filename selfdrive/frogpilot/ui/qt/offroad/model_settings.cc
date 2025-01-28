@@ -40,7 +40,7 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
           }
 
           if (blacklistableModels.size() <= 1) {
-            FrogPilotConfirmationDialog::toggleAlert(tr("There are no more models to blacklist! The only available model is \"%1\"!").arg(blacklistableModels.first()), tr("OK"), this);
+            FrogPilotConfirmationDialog::toggleAlert(tr("There are no more models to blacklist! The only available model is \"%1\"!").arg(blacklistableModels.first()), tr("Ok"), this);
           } else {
             QString modelToBlacklist = MultiOptionDialog::getSelection(tr("Select a model to add to the blacklist"), blacklistableModels, "", this);
             if (!modelToBlacklist.isEmpty()) {
@@ -110,8 +110,8 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
             deletableModels.append(modelName);
           }
         }
-        deletableModels.removeAll(processModelName(QString::fromStdString(params.get("ModelName"))));
-        deletableModels.removeAll(processModelName(QString::fromStdString(params_default.get("ModelName"))));
+        deletableModels.removeAll(processModelName(currentModel));
+        deletableModels.removeAll(modelFileToNameMapProcessed.value(QString::fromStdString(params_default.get("Model"))));
 
         if (id == 0) {
           QString modelToDelete = MultiOptionDialog::getSelection(tr("Select a driving model to delete"), deletableModels, "", this);
@@ -192,22 +192,21 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
             selectableModels.append(modelName);
           }
         }
-        selectableModels.prepend(QString::fromStdString(params_default.get("ModelName")));
+        selectableModels.prepend(modelFileToNameMap.value(QString::fromStdString(params_default.get("Model"))));
 
-        QString modelToSelect = MultiOptionDialog::getSelection(tr("Select a model - 🗺️ = Navigation | 📡 = Radar | 👀 = VOACC"), selectableModels, QString::fromStdString(params.get("ModelName")), this);
+        QString modelToSelect = MultiOptionDialog::getSelection(tr("Select a model - 🗺️ = Navigation | 📡 = Radar | 👀 = VOACC"), selectableModels, currentModel, this);
         if (!modelToSelect.isEmpty()) {
+          currentModel = modelToSelect;
           params.put("Model", modelFileToNameMap.key(modelToSelect).toStdString());
-          params.put("ModelName", modelToSelect.toStdString());
 
           if (started) {
-            if (FrogPilotConfirmationDialog::toggle(tr("Reboot required to take effect."), tr("Reboot Now"), this)) {
+            if (FrogPilotConfirmationDialog::toggleReboot(this)) {
               Hardware::reboot();
             }
           }
           selectModelBtn->setValue(modelToSelect);
         }
       });
-      selectModelBtn->setValue(QString::fromStdString(params.get("ModelName")));
       modelToggle = selectModelBtn;
 
     } else {
@@ -268,9 +267,12 @@ void FrogPilotModelPanel::showEvent(QShowEvent *event) {
       deletableModels.append(modelName);
     }
   }
-  deletableModels.removeAll(processModelName(QString::fromStdString(params.get("ModelName"))));
-  deletableModels.removeAll(processModelName(QString::fromStdString(params_default.get("ModelName"))));
+  deletableModels.removeAll(processModelName(currentModel));
+  deletableModels.removeAll(modelFileToNameMapProcessed.value(QString::fromStdString(params_default.get("Model"))));
   noModelsDownloaded = deletableModels.isEmpty();
+
+  currentModel = modelFileToNameMap.value(QString::fromStdString(params.get("Model")));
+  selectModelBtn->setValue(currentModel);
 
   hideToggles();
 }

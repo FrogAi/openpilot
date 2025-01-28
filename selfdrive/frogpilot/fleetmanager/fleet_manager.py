@@ -328,6 +328,14 @@ def get_toggle_values_route():
   toggle_values = fleet.get_all_toggle_values()
   return jsonify(toggle_values)
 
+@app.route("/reset_toggle_values", methods=['POST'])
+def reset_toggle_values_route():
+  try:
+    fleet.reset_toggle_values()
+    return jsonify({"message": "Toggles reset successfully! Rebooting..."}), 200
+  except Exception as error:
+    return jsonify({"error": "Failed to reset toggles...", "details": str(error)}), 400
+
 @app.route("/store_toggle_values", methods=['POST'])
 def store_toggle_values_route():
   try:
@@ -352,6 +360,14 @@ def unlock_doors_route():
     return jsonify({"message": "Doors unlocked successfully!"}), 200
   except Exception as error:
     return jsonify({"error": "Failed to unlock doors...", "details": str(error)}), 400
+
+@app.route("/reboot_device", methods=['POST'])
+def reboot_device_route():
+  try:
+    fleet.reboot_device()
+    return jsonify({"message": "Successfully rebooted!"}), 200
+  except Exception as error:
+    return jsonify({"error": "Failed to reboot...", "details": str(error)}), 400
 
 def main():
   try:

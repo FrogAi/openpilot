@@ -104,7 +104,7 @@ def extract_zip(zip_file, extract_path):
   print(f"Extracting {zip_file} to {extract_path}")
 
   try:
-    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+    with zipfile.ZipFile(zip_file, "r") as zip_ref:
       zip_ref.extractall(extract_path)
     zip_file.unlink()
     print(f"Extraction completed: {zip_file} has been removed")
@@ -121,9 +121,9 @@ def is_url_pingable(url, timeout=5):
     request = urllib.request.Request(
       url,
       headers={
-        'User-Agent': 'Mozilla/5.0 (compatible; Python urllib)',
-        'Accept': '*/*',
-        'Connection': 'keep-alive'
+        "User-Agent": "Mozilla/5.0 (compatible; Python urllib)",
+        "Accept": "*/*",
+        "Connection": "keep-alive"
       }
     )
     urllib.request.urlopen(request, timeout=timeout)
@@ -143,13 +143,13 @@ def is_url_pingable(url, timeout=5):
     return False
 
 def lock_doors(lock_doors_timer, sm):
-  while any(proc.name == "dmonitoringd" and proc.running for proc in sm['managerState'].processes):
+  while any(proc.name == "dmonitoringd" and proc.running for proc in sm["managerState"].processes):
     time.sleep(DT_HW)
     sm.update()
 
   params.put_bool("IsDriverViewEnabled", True)
 
-  while not any(proc.name == "dmonitoringd" and proc.running for proc in sm['managerState'].processes):
+  while not any(proc.name == "dmonitoringd" and proc.running for proc in sm["managerState"].processes):
     time.sleep(DT_HW)
     sm.update()
 
@@ -159,10 +159,10 @@ def lock_doors(lock_doors_timer, sm):
     if elapsed_time >= lock_doors_timer:
       break
 
-    if any(ps.ignitionLine or ps.ignitionCan for ps in sm['pandaStates'] if ps.pandaType != log.PandaState.PandaType.unknown):
+    if any(ps.ignitionLine or ps.ignitionCan for ps in sm["pandaStates"] if ps.pandaType != log.PandaState.PandaType.unknown):
       break
 
-    if sm['driverMonitoringState'].faceDetected or not sm.alive['driverMonitoringState']:
+    if sm["driverMonitoringState"].faceDetected or not sm.alive["driverMonitoringState"]:
       start_time = time.monotonic()
 
     time.sleep(DT_DMON)
@@ -189,7 +189,7 @@ def update_maps(now):
   while not MAPD_PATH.exists():
     time.sleep(60)
 
-  maps_selected = json.loads(params.get("MapsSelected", encoding='utf8') or "{}")
+  maps_selected = json.loads(params.get("MapsSelected", encoding="utf-8") or "{}")
   if not maps_selected.get("nations") and not maps_selected.get("states"):
     return
 
@@ -205,13 +205,13 @@ def update_maps(now):
   suffix = "th" if 4 <= day <= 20 or 24 <= day <= 30 else ["st", "nd", "rd"][day % 10 - 1]
   todays_date = now.strftime(f"%B {day}{suffix}, %Y")
 
-  if maps_downloaded and params.get("LastMapsUpdate", encoding='utf-8') == todays_date:
+  if maps_downloaded and params.get("LastMapsUpdate", encoding="utf-8") == todays_date:
     return
 
-  if params.get("OSMDownloadProgress", encoding='utf-8') is None:
+  if params.get("OSMDownloadProgress", encoding="utf-8") is None:
     params_memory.put("OSMDownloadLocations", json.dumps(maps_selected))
 
-  while params.get("OSMDownloadProgress", encoding='utf-8') is not None:
+  while params.get("OSMDownloadProgress", encoding="utf-8") is not None:
     time.sleep(60)
 
   params.put("LastMapsUpdate", todays_date)
@@ -226,7 +226,7 @@ def update_openpilot(manually_updated, frogpilot_toggles):
   if not params.get_bool("UpdaterFetchAvailable"):
     return
 
-  while params.get("UpdaterState", encoding="utf8") != "idle":
+  while params.get("UpdaterState", encoding="utf-8") != "idle":
     time.sleep(60)
 
   subprocess.run(["pkill", "-SIGHUP", "-f", "system.updated.updated"], check=False)

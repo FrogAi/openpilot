@@ -189,13 +189,11 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
     } else if (param == "CurveSpeedControl") {
       FrogPilotParamManageControl *curveControlToggle = new FrogPilotParamManageControl(param, title, desc, icon);
       QObject::connect(curveControlToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
-        curveDetectionBtn->setEnabledButtons(0, QDir("/data/media/0/osm/offline").exists());
-        curveDetectionBtn->setCheckedButton(0, params.getBool("MTSCEnabled"));
-        curveDetectionBtn->setCheckedButton(1, params.getBool("VisionTurnControl"));
+        curveDetectionToggle->setEnabledButtons(0, QDir("/data/media/0/osm/offline").exists());
 
         std::set<QString> modifiedCurveSpeedKeys = curveSpeedKeys;
 
-        if (!params.getBool("MTSCEnabled")) {
+        if (!params.getBool("MapTurnControl")) {
           modifiedCurveSpeedKeys.erase("MTSCCurvatureCheck");
         }
 
@@ -203,46 +201,34 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
       });
       longitudinalToggle = curveControlToggle;
     } else if (param == "CurveDetectionMethod") {
-      curveDetectionBtn = new FrogPilotButtonsControl(title, desc, {tr("Map Based"), tr("Vision")}, true, false);
-      QObject::connect(curveDetectionBtn, &FrogPilotButtonsControl::buttonClicked, [=](int id) {
-        bool mtscEnabled = params.getBool("MTSCEnabled");
-        bool vtscEnabled = params.getBool("VisionTurnControl");
+      std::vector<QString> curveDetectionToggles{"MapTurnControl", "VisionTurnControl"};
+      std::vector<QString> curveDetectionToggleNames{tr("Map Based"), tr("Vision")};
+      curveDetectionToggle = new FrogPilotButtonToggleControl(param, title, desc, curveDetectionToggles, curveDetectionToggleNames, false, true);
+      QObject::connect(curveDetectionToggle, &FrogPilotButtonToggleControl::buttonClicked, [this](int index) {
+        std::set<QString> modifiedCurveSpeedKeys = curveSpeedKeys;
 
-        if (id == 0) {
-          if (mtscEnabled && !vtscEnabled) {
-            curveDetectionBtn->setCheckedButton(0, true);
-            return;
-          }
-
-          params.putBool("MTSCEnabled", !mtscEnabled);
-          curveDetectionBtn->setCheckedButton(0, !mtscEnabled);
-
-          std::set<QString> modifiedCurveSpeedKeys = curveSpeedKeys;
-
-          if (mtscEnabled) {
-            modifiedCurveSpeedKeys.erase("MTSCCurvatureCheck");
-          }
-
-          showToggles(modifiedCurveSpeedKeys);
-        } else if (id == 1) {
-          if (vtscEnabled && !mtscEnabled) {
-            curveDetectionBtn->setCheckedButton(1, true);
-            return;
-          }
-
-          params.putBool("VisionTurnControl", !vtscEnabled);
-          curveDetectionBtn->setCheckedButton(1, !vtscEnabled);
+        if (!params.getBool("MapTurnControl")) {
+          modifiedCurveSpeedKeys.erase("MTSCCurvatureCheck");
         }
+
+        if (!(params.getBool("MapTurnControl") || params.getBool("VisionTurnControl"))) {
+          modifiedCurveSpeedKeys.erase("CurveSensitivity");
+          modifiedCurveSpeedKeys.erase("TurnAggressiveness");
+        }
+
+        showToggles(modifiedCurveSpeedKeys);
+
+        curveDetectionToggle->refresh();
       });
-      QObject::connect(curveDetectionBtn, &FrogPilotButtonsControl::disabledButtonClicked, [=](int id) {
+      QObject::connect(curveDetectionToggle, &FrogPilotButtonToggleControl::disabledButtonClicked, [=](int id) {
         if (id == 0) {
           FrogPilotConfirmationDialog::toggleAlert(
             tr("The 'Map Based' option is only available when some 'Map Data' has been downloaded!"),
-            tr("Okay"), this
+            tr("Ok"), this
           );
         }
       });
-      longitudinalToggle = curveDetectionBtn;
+      longitudinalToggle = curveDetectionToggle;
     } else if (param == "CurveSensitivity" || param == "TurnAggressiveness") {
       longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 200, "%");
 

@@ -126,6 +126,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("DeviceShutdown", "9", 1),
   ("DisableOnroadUploads", "0", 2),
   ("DisableOpenpilotLongitudinal", "0", 2),
+  ("DiscordUsername", "", 0),
   ("DisengageVolume", "101", 2),
   ("DriverCamera", "0", 1),
   ("DynamicPathWidth", "0", 2),
@@ -174,7 +175,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("LeadDetectionThreshold", "35", 3),
   ("LeadInfo", "1", 3),
   ("LockDoors", "1", 0),
-  ("LockDoorsTimer", "0", 3),
+  ("LockDoorsTimer", "0", 0),
   ("LongitudinalMetrics", "1", 3),
   ("LongitudinalTune", "1", 0),
   ("LongPitch", "1", 2),
@@ -187,17 +188,16 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("MapboxSecretKey", "", 0),
   ("MapsSelected", "", 0),
   ("MapStyle", "0", 2),
+  ("MapTurnControl", "1", 1),
   ("MaxDesiredAcceleration", "4.0", 3),
   ("MinimumLaneChangeSpeed", str(LANE_CHANGE_SPEED_MIN / CV.MPH_TO_MS), 2),
   ("Model", DEFAULT_CLASSIC_MODEL, 1),
   ("ModelDrivesAndScores", "", 2),
-  ("ModelName", DEFAULT_CLASSIC_MODEL_NAME, 1),
   ("ModelRandomizer", "0", 2),
   ("ModelUI", "1", 2),
   ("ModelVersion", DEFAULT_CLASSIC_MODEL_VERSION, 2),
   ("ModelVersions", "", 2),
   ("MTSCCurvatureCheck", "1", 2),
-  ("MTSCEnabled", "1", 1),
   ("NavigationUI", "1", 2),
   ("NewLongAPI", "0", 2),
   ("NewLongAPIGM", "1", 2),
@@ -276,6 +276,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("SLCPriority1", "Navigation", 2),
   ("SLCPriority2", "Map Data", 2),
   ("SLCPriority3", "Dashboard", 2),
+  ("SmartTurnControl", "0", 1),
   ("SNGHack", "1", 2),
   ("SpeedLimitChangedAlert", "1", 0),
   ("SpeedLimitController", "1", 0),
@@ -316,6 +317,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("TurnDesires", "0", 2),
   ("UnlimitedLength", "1", 2),
   ("UnlockDoors", "1", 0),
+  ("UserCurvature", "", 1),
   ("UseSI", "1", 3),
   ("UseVienna", "0", 2),
   ("VisionTurnControl", "1", 1),
@@ -370,7 +372,7 @@ class FrogPilotVariables:
       with car.CarParams.from_bytes(msg_bytes) as CP:
         always_on_lateral_set = CP.alternativeExperience & ALTERNATIVE_EXPERIENCE.ALWAYS_ON_LATERAL
         car_make = CP.carName
-        car_model = CP.carFingerprint
+        toggle.car_model = CP.carFingerprint
         has_auto_tune = car_make in {"hyundai", "toyota"} and CP.lateralTuning.which() == "torque"
         has_bsm = CP.enableBsm
         has_pedal = CP.enableGasInterceptor
@@ -386,8 +388,8 @@ class FrogPilotVariables:
         vEgoStarting = CP.vEgoStarting
     else:
       always_on_lateral_set = False
-      car_make = "mock"
-      car_model = "mock"
+      car_make = "MOCK"
+      toggle.car_model = "MOCK"
       has_auto_tune = False
       has_bsm = False
       has_pedal = False
@@ -475,9 +477,10 @@ class FrogPilotVariables:
     toggle.curve_sensitivity = params.get_int("CurveSensitivity") / 100 if toggle.curve_speed_controller and tuning_level >= level["CurveSensitivity"] else default.get_int("CurveSensitivity") / 100
     toggle.hide_csc_ui = toggle.curve_speed_controller and (params.get_bool("HideCSCUI") if tuning_level >= level["HideCSCUI"] else default.get_bool("HideCSCUI"))
     toggle.turn_aggressiveness = params.get_int("TurnAggressiveness") / 100 if toggle.curve_speed_controller and tuning_level >= level["TurnAggressiveness"] else default.get_int("TurnAggressiveness") / 100
-    toggle.map_turn_speed_controller = toggle.curve_speed_controller and (params.get_bool("MTSCEnabled") if tuning_level >= level["MTSCEnabled"] else default.get_bool("MTSCEnabled"))
+    toggle.map_turn_speed_controller = toggle.curve_speed_controller and (params.get_bool("MapTurnControl") if tuning_level >= level["MapTurnControl"] else default.get_bool("MapTurnControl"))
     toggle.mtsc_curvature_check = toggle.map_turn_speed_controller and (params.get_bool("MTSCCurvatureCheck") if tuning_level >= level["MTSCCurvatureCheck"] else default.get_bool("MTSCCurvatureCheck"))
-    toggle.vision_turn_controller = toggle.curve_speed_controller and (params.get_bool("VisionTurnControl") if tuning_level >= level["VisionTurnControl"] else default.get_bool("VisionTurnControl"))
+    toggle.smart_turn_speed_controller = False
+    toggle.vision_turn_speed_controller = toggle.curve_speed_controller and (params.get_bool("VisionTurnControl") if tuning_level >= level["VisionTurnControl"] else default.get_bool("VisionTurnControl"))
 
     toggle.custom_alerts = params.get_bool("CustomAlerts") if tuning_level >= level["CustomAlerts"] else default.get_bool("CustomAlerts")
     toggle.goat_scream_alert = toggle.custom_alerts and (params.get_bool("GoatScream") if tuning_level >= level["GoatScream"] else default.get_bool("GoatScream"))
@@ -613,7 +616,7 @@ class FrogPilotVariables:
     toggle.model_versions = params.get("ModelVersions", encoding='utf-8') or ""
     downloaded_models = [model for model in toggle.available_models.split(",") if (MODELS_PATH / f"{model}.thneed").exists()]
     toggle.model_randomizer = downloaded_models and (params.get_bool("ModelRandomizer") if tuning_level >= level["ModelRandomizer"] else default.get_bool("ModelRandomizer"))
-    if toggle.available_models and downloaded_models and toggle.model_versions:
+    if toggle.available_models and toggle.available_model_names and downloaded_models and toggle.model_versions:
       if toggle.model_randomizer:
         if not started:
           blacklisted_models = (params.get("BlacklistedModels", encoding='utf-8') or "").split(",")
@@ -624,16 +627,16 @@ class FrogPilotVariables:
       else:
         toggle.model = params.get("Model", encoding='utf-8') if tuning_level >= level["Model"] else default.get("Model", encoding='utf-8')
         if toggle.model in toggle.available_models.split(","):
-          toggle.model_name = params.get("ModelName", encoding='utf-8') if tuning_level >= level["ModelName"] else default.get("ModelName", encoding='utf-8')
+          toggle.model_name = toggle.available_model_names.split(",")[toggle.available_models.split(",").index(toggle.model)]
           toggle.model_version = toggle.model_versions.split(",")[toggle.available_models.split(",").index(toggle.model)]
         else:
           toggle.model = default.get("Model", encoding='utf-8')
-          toggle.model_name = default.get("ModelName", encoding='utf-8')
+          toggle.model_name = toggle.available_model_names.split(",")[toggle.available_models.split(",").index(toggle.model)]
           toggle.model_version = default.get("ModelVersion", encoding='utf-8')
     else:
-      toggle.model = default.get("Model", encoding='utf-8')
-      toggle.model_name = default.get("ModelName", encoding='utf-8')
-      toggle.model_version = default.get("ModelVersion", encoding='utf-8')
+      toggle.model = DEFAULT_CLASSIC_MODEL
+      toggle.model_name = DEFAULT_CLASSIC_MODEL_NAME
+      toggle.model_version = DEFAULT_CLASSIC_MODEL_VERSION
     toggle.classic_model = toggle.model_version in {"v1", "v2", "v3", "v4"}
     toggle.planner_curvature_model = toggle.model_version not in {"v1", "v2", "v3", "v4", "v5"}
     toggle.radarless_model = toggle.model_version in {"v3"}
@@ -739,7 +742,7 @@ class FrogPilotVariables:
     toggle.lock_doors = toyota_doors and (params.get_bool("LockDoors") if tuning_level >= level["LockDoors"] else default.get_bool("LockDoors"))
     toggle.unlock_doors = toyota_doors and (params.get_bool("UnlockDoors") if tuning_level >= level["UnlockDoors"] else default.get_bool("UnlockDoors"))
 
-    toggle.volt_sng = car_model == "CHEVROLET_VOLT" and (params.get_bool("VoltSNG") if tuning_level >= level["VoltSNG"] else default.get_bool("VoltSNG"))
+    toggle.volt_sng = toggle.car_model == "CHEVROLET_VOLT" and (params.get_bool("VoltSNG") if tuning_level >= level["VoltSNG"] else default.get_bool("VoltSNG"))
 
     params_memory.put("FrogPilotToggles", json.dumps(toggle.__dict__))
     params_memory.remove("FrogPilotTogglesUpdated")

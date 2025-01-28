@@ -47,6 +47,34 @@ FrogPilotUtilitiesPanel::FrogPilotUtilitiesPanel(FrogPilotSettingsWindow *parent
   forceStartedBtn->setCheckedButton(2);
   addItem(forceStartedBtn);
 
+  ButtonControl *reportIssueBtn = new ButtonControl(tr("Report a Bug or an Issue"), tr("REPORT"), tr("Let 'FrogsGoMoo' know about an issue you're facing."));
+  QObject::connect(reportIssueBtn, &ButtonControl::clicked, [this]() {
+    QStringList report_messages = {
+      "I saw an alert that said 'openpilot crashed'",
+      "I'm noticing harsh acceleration",
+      "I'm noticing harsh braking",
+      "I'm noticing unusual steering",
+      "My car isn't staying in its lane",
+      "Something else"
+    };
+
+    QString selected_issue = MultiOptionDialog::getSelection(tr("What's going on?"), report_messages, "", this);
+    if (selected_issue.isEmpty()) {
+      return;
+    } else if (selected_issue == "Something else") {
+      selected_issue = InputDialog::getText(tr("Please describe what's happening"), this, tr("Send Report"), false, 10, "", 100).trimmed();
+    }
+
+    QJsonObject reportData;
+    reportData["Issue"] = selected_issue;
+    reportData["DiscordUser"] = InputDialog::getText(tr("What's your Discord username?"), this, tr("Send Report"), false, -1, QString::fromStdString(params.get("DiscordUsername"))).trimmed();
+    params.putNonBlocking("DiscordUsername", reportData["DiscordUser"].toString().toStdString());
+    params_memory.put("IssueReported", QJsonDocument(reportData).toJson(QJsonDocument::Compact).toStdString());
+
+    FrogPilotConfirmationDialog::toggleAlert(tr("Thanks for letting us know! Your report has been submitted."), tr("Ok"), this);
+  });
+  addItem(reportIssueBtn);
+
   ButtonControl *resetTogglesBtn = new ButtonControl(tr("Reset Toggles to Default"), tr("RESET"), tr("Reset your toggle settings back to their default settings."));
   QObject::connect(resetTogglesBtn, &ButtonControl::clicked, [=]() {
     if (ConfirmationDialog::confirm(tr("Are you sure you want to completely reset all of your toggle settings?"), tr("Reset"), this)) {

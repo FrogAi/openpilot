@@ -104,14 +104,14 @@ def fill_model_msg(msg: capnp._DynamicStructBuilder, net_output_data: dict[str, 
         leftLane_y = 0.5 * (net_output_data['lane_lines'][0,0,:,1] + net_output_data['lane_lines'][0,1,:,1])
         fill_xyzt(lane_line, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), leftLane_x, leftLane_y)
       else:
-        fill_xyzt(lane_line, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), np.empty(ModelConstants.IDX_N), np.empty(ModelConstants.IDX_N))
+        fill_xyzt(lane_line, PLAN_T_IDXS, np.empty((0,)), np.empty((0,)), np.empty((0,)))
     elif i == 5:
       if lane_probs[3] > 0:
         rightLane_x = 0.5 * (net_output_data['lane_lines'][0,2,:,0] + net_output_data['lane_lines'][0,3,:,0])
         rightLane_y = 0.5 * (net_output_data['lane_lines'][0,2,:,1] + net_output_data['lane_lines'][0,3,:,1])
         fill_xyzt(lane_line, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), rightLane_x, rightLane_y)
       else:
-        fill_xyzt(lane_line, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), np.empty(ModelConstants.IDX_N), np.empty(ModelConstants.IDX_N))
+        fill_xyzt(lane_line, PLAN_T_IDXS, np.empty((0,)), np.empty((0,)), np.empty((0,)))
   modelV2.laneLineStds = net_output_data['lane_lines_stds'][0,:,0,0].tolist()
   modelV2.laneLineProbs = lane_probs
 
@@ -155,10 +155,10 @@ def fill_model_msg(msg: capnp._DynamicStructBuilder, net_output_data: dict[str, 
 
   # temporal pose
   temporal_pose = modelV2.temporalPose
-  temporal_pose.trans = net_output_data['sim_pose'][0,:3].tolist()
-  temporal_pose.transStd = net_output_data['sim_pose_stds'][0,:3].tolist()
-  temporal_pose.rot = net_output_data['sim_pose'][0,3:].tolist()
-  temporal_pose.rotStd = net_output_data['sim_pose_stds'][0,3:].tolist()
+  temporal_pose.trans = net_output_data['sim_pose'][0,:ModelConstants.POSE_WIDTH//2].tolist()
+  temporal_pose.transStd = net_output_data['sim_pose_stds'][0,:ModelConstants.POSE_WIDTH//2].tolist()
+  temporal_pose.rot = net_output_data['sim_pose'][0,ModelConstants.POSE_WIDTH//2:].tolist()
+  temporal_pose.rotStd = net_output_data['sim_pose_stds'][0,ModelConstants.POSE_WIDTH//2:].tolist()
 
   # confidence
   if vipc_frame_id % (2*ModelConstants.MODEL_FREQ) == 0:

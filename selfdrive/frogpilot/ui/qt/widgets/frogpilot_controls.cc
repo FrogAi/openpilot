@@ -39,17 +39,17 @@ QColor loadThemeColors(const QString &colorKey, bool clearCache) {
   );
 }
 
-bool FrogPilotConfirmationDialog::toggle(const QString &prompt_text, const QString &confirm_text, QWidget *parent, const bool isLong) {
-  ConfirmationDialog d(prompt_text, confirm_text, tr("Reboot Later"), false, parent, isLong);
-  return d.exec();
-}
-
 bool FrogPilotConfirmationDialog::toggleAlert(const QString &prompt_text, const QString &button_text, QWidget *parent, const bool isLong) {
   ConfirmationDialog d(prompt_text, button_text, "", false, parent, isLong);
   return d.exec();
 }
 
-bool FrogPilotConfirmationDialog::yesorno(const QString &prompt_text, QWidget *parent, const bool isLong) {
-  ConfirmationDialog d(prompt_text, tr("Yes"), tr("No"), false, parent, isLong);
+bool FrogPilotConfirmationDialog::toggleReboot(QWidget *parent) {
+  ConfirmationDialog d(tr("Reboot required to take effect."), tr("Reboot Now"), tr("Reboot Later"), false, parent);
+  return d.exec();
+}
+
+bool FrogPilotConfirmationDialog::yesorno(const QString &prompt_text, QWidget *parent) {
+  ConfirmationDialog d(prompt_text, tr("Yes"), tr("No"), false, parent);
   return d.exec();
 }

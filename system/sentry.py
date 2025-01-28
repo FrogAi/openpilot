@@ -1,8 +1,5 @@
 """Install exception handler for process crash."""
-import os
 import sentry_sdk
-import threading
-import time
 import traceback
 from datetime import datetime
 from enum import Enum
@@ -10,7 +7,6 @@ from pathlib import Path
 from sentry_sdk.integrations.threading import ThreadingIntegration
 
 from openpilot.common.params import Params, ParamKeyType
-from openpilot.common.time import system_time_valid
 from openpilot.system.athena.registration import is_registered_device
 from openpilot.system.hardware import HARDWARE, PC
 from openpilot.common.swaglog import cloudlog
@@ -26,121 +22,97 @@ class SentryProject(Enum):
 
 
 def report_tombstone(fn: str, message: str, contents: str) -> None:
-  def report_tombstone_thread():
-    cloudlog.error({'tombstone': message})
+  cloudlog.error({'tombstone': message})
 
-    with sentry_sdk.configure_scope() as scope:
-      scope.set_extra("tombstone_fn", fn)
-      scope.set_extra("tombstone", contents)
-      sentry_sdk.capture_message(message=message)
-      sentry_sdk.flush()
-
-  threading.Thread(target=report_tombstone_thread, daemon=True).start()
+  with sentry_sdk.configure_scope() as scope:
+    scope.set_extra("tombstone_fn", fn)
+    scope.set_extra("tombstone", contents)
+    sentry_sdk.capture_message(message=message)
+    sentry_sdk.flush()
 
 
 def capture_exception(*args, **kwargs) -> None:
-  def capture_exception_thread():
-    exc_text = traceback.format_exc()
+  exc_text = traceback.format_exc()
 
-    errors_to_ignore = [
-      "already exists. To overwrite it, set 'overwrite' to True",
-      "setup_quectel failed after retry",
-    ]
+  phrases_to_check = [
+    "already exists. To overwrite it, set 'overwrite' to True",
+    "setup_quectel failed after retry",
+  ]
 
-    if any(error in exc_text for error in errors_to_ignore):
+  if any(phrase in exc_text for phrase in phrases_to_check):
+    return
+
+  save_exception(exc_text)
+  cloudlog.error("crash", exc_info=kwargs.get("exc_info", 1))
+
+  try:
+    sentry_sdk.capture_exception(*args, **kwargs)
+    sentry_sdk.flush()  # https://github.com/getsentry/sentry-python/issues/291
+  except Exception:
+    cloudlog.exception("sentry exception")
+
+
+def capture_fingerprint(frogpilot_toggles, params, params_tracking):
+  if frogpilot_toggles.block_user:
+    with sentry_sdk.push_scope() as scope:
+      sentry_sdk.capture_message("Blocked user from using the development branch", level="warning")
+      sentry_sdk.flush()
       return
 
-    save_exception(exc_text)
-    cloudlog.error("crash", exc_info=kwargs.get('exc_info', 1))
+  param_types = {
+    "FrogPilot Controls": ParamKeyType.FROGPILOT_CONTROLS,
+    "FrogPilot Vehicles": ParamKeyType.FROGPILOT_VEHICLES,
+    "FrogPilot Visuals": ParamKeyType.FROGPILOT_VISUALS,
+    "FrogPilot Other": ParamKeyType.FROGPILOT_OTHER,
+    "FrogPilot Tracking": ParamKeyType.FROGPILOT_TRACKING,
+  }
 
-    try:
-      while not system_time_valid():
-        time.sleep(1)
-
-      sentry_sdk.capture_exception(*args, **kwargs)
-      sentry_sdk.flush()  # https://github.com/getsentry/sentry-python/issues/291
-    except Exception:
-      cloudlog.exception("sentry exception")
-
-  threading.Thread(target=capture_exception_thread, daemon=True).start()
-
-
-def capture_fingerprint(candidate, params, blocked_user=False):
-  def capture_fingerprint_thread():
-    while not system_time_valid():
-      time.sleep(1)
-
-    if blocked_user:
-      with sentry_sdk.push_scope() as scope:
-        sentry_sdk.capture_message("Blocked user from using the development branch", level='warning')
-        sentry_sdk.flush()
-        return
-
-    params_tracking = Params("/persist/tracking")
-
-    param_types = {
-      "FrogPilot Controls": ParamKeyType.FROGPILOT_CONTROLS,
-      "FrogPilot Vehicles": ParamKeyType.FROGPILOT_VEHICLES,
-      "FrogPilot Visuals": ParamKeyType.FROGPILOT_VISUALS,
-      "FrogPilot Other": ParamKeyType.FROGPILOT_OTHER,
-      "FrogPilot Tracking": ParamKeyType.FROGPILOT_TRACKING,
-    }
-
-    matched_params = {label: {} for label in param_types}
-    for key in params.all_keys():
-      for label, key_type in param_types.items():
-        if params.get_key_type(key) & key_type:
-          if key_type == ParamKeyType.FROGPILOT_TRACKING:
-            value = params_tracking.get_int(key)
+  matched_params = {label: {} for label in param_types}
+  for key in params.all_keys():
+    for label, key_type in param_types.items():
+      if params.get_key_type(key) & key_type:
+        if key_type == ParamKeyType.FROGPILOT_TRACKING:
+          value = f"{params_tracking.get_int(key):,}"
+        else:
+          if isinstance(params.get(key), bytes):
+            value = params.get(key, encoding="utf-8")
           else:
-            if isinstance(params.get(key), bytes):
-              value = params.get(key, encoding='utf-8')
-            else:
-              value = params.get(key) or "0"
+            value = params.get(key) or "0"
 
-          if isinstance(value, str) and "." in value:
-            value = value.rstrip("0").rstrip(".")
-          matched_params[label][key.decode('utf-8')] = value
+        if isinstance(value, str) and "." in value:
+          value = value.rstrip("0").rstrip(".")
+        matched_params[label][key.decode("utf-8")] = value
 
+  with sentry_sdk.push_scope() as scope:
     for label, key_values in matched_params.items():
-      if label == "FrogPilot Tracking":
-        matched_params[label] = {key: f"{value:,}" for key, value in key_values.items()}
-      else:
-        matched_params[label] = {key: f"{value:}" for key, value in key_values.items()}
+      scope.set_context(label, key_values)
 
-    with sentry_sdk.push_scope() as scope:
-      for label, key_values in matched_params.items():
-        scope.set_context(label, key_values)
-
-      scope.fingerprint = [params.get("DongleId", encoding='utf-8'), candidate]
-      sentry_sdk.capture_message(f"Fingerprinted {candidate}", level='info')
-      sentry_sdk.flush()
-
-  threading.Thread(target=capture_fingerprint_thread, daemon=True).start()
+    sentry_sdk.capture_message(f"Fingerprinted {frogpilot_toggles.car_model}", level="info")
+    sentry_sdk.flush()
 
 
-def capture_model(frogpilot_toggles):
-  def capture_model_thread():
-    while not system_time_valid():
-      time.sleep(1)
+def capture_model(model_name):
+  sentry_sdk.capture_message(f"User using: {model_name}", level="info")
+  sentry_sdk.flush()
 
-    with sentry_sdk.push_scope() as scope:
-      sentry_sdk.capture_message(f"User using: {frogpilot_toggles.model_name}", level='info')
-      sentry_sdk.flush()
 
-  threading.Thread(target=capture_model_thread, daemon=True).start()
+def capture_report(discord_user, report, frogpilot_toggles):
+  error_file_path = CRASHES_DIR / "error.txt"
+  error_content = "No error log found."
+
+  if error_file_path.exists():
+    error_content = error_file_path.read_text()
+
+  with sentry_sdk.push_scope() as scope:
+    scope.set_context("Error Log", {"content": error_content})
+    scope.set_context("Toggle Values", frogpilot_toggles)
+    sentry_sdk.capture_message(f"{discord_user} submitted report: {report}", level="fatal")
+    sentry_sdk.flush()
 
 
 def capture_user(channel):
-  def capture_user_thread():
-    while not system_time_valid():
-      time.sleep(1)
-
-    with sentry_sdk.push_scope() as scope:
-      sentry_sdk.capture_message(f"Logged user on: {channel}", level='info')
-      sentry_sdk.flush()
-
-  threading.Thread(target=capture_user_thread, daemon=True).start()
+  sentry_sdk.capture_message(f"Logged user on: {channel}", level="info")
+  sentry_sdk.flush()
 
 
 def set_tag(key: str, value: str) -> None:
@@ -148,22 +120,21 @@ def set_tag(key: str, value: str) -> None:
 
 
 def save_exception(exc_text: str) -> None:
-  os.makedirs(CRASHES_DIR, exist_ok=True)
+  CRASHES_DIR.mkdir(parents=True, exist_ok=True)
 
   files = [
-    os.path.join(CRASHES_DIR, datetime.now().strftime('%Y-%m-%d--%H-%M-%S.log')),
-    os.path.join(CRASHES_DIR, 'error.txt')
+    CRASHES_DIR / datetime.now().strftime("%Y-%m-%d--%H-%M-%S.log"),
+    CRASHES_DIR / "error.txt"
   ]
 
-  for file in files:
-    with open(file, 'w') as f:
-      if file.endswith("error.txt"):
-        lines = exc_text.splitlines()[-10:]
-        f.write("\n".join(lines))
-      else:
-        f.write(exc_text)
+  for file_path in files:
+    if file_path.name == "error.txt":
+      lines = exc_text.splitlines()[-10:]
+      file_path.write_text("\n".join(lines))
+    else:
+      file_path.write_text(exc_text)
 
-  print('Logged current crash to {}'.format(files))
+  print(f"Logged current crash to {[str(file) for file in files]}")
 
 
 def init(project: SentryProject) -> bool:
@@ -184,9 +155,9 @@ def init(project: SentryProject) -> bool:
     env = short_branch
 
   params = Params()
-  dongle_id = params.get("DongleId", encoding='utf-8')
-  installed = params.get("InstallDate", encoding='utf-8')
-  updated = params.get("Updated", encoding='utf-8')
+  dongle_id = params.get("DongleId", encoding="utf-8")
+  installed = params.get("InstallDate", encoding="utf-8")
+  updated = params.get("Updated", encoding="utf-8")
 
   integrations = []
   if project == SentryProject.SELFDRIVE:
