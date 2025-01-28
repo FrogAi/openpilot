@@ -1,6 +1,7 @@
 """Install exception handler for process crash."""
 import os
 import sentry_sdk
+import threading
 import time
 import traceback
 from datetime import datetime
@@ -50,25 +51,25 @@ def capture_exception(*args, **kwargs) -> None:
   save_exception(exc_text)
   cloudlog.error("crash", exc_info=kwargs.get('exc_info', 1))
 
-    errors_to_ignore = [
-      "already exists. To overwrite it, set 'overwrite' to True",
-      "setup_quectel failed after retry",
-    ]
+  errors_to_ignore = [
+    "already exists. To overwrite it, set 'overwrite' to True",
+    "setup_quectel failed after retry",
+  ]
 
-    if any(error in exc_text for error in errors_to_ignore):
-      return
+  if any(error in exc_text for error in errors_to_ignore):
+    return
 
-    save_exception(exc_text)
-    cloudlog.error("crash", exc_info=kwargs.get('exc_info', 1))
+  save_exception(exc_text)
+  cloudlog.error("crash", exc_info=kwargs.get('exc_info', 1))
 
-    try:
-      while not system_time_valid():
-        time.sleep(1)
+  try:
+    while not system_time_valid():
+      time.sleep(1)
 
-      sentry_sdk.capture_exception(*args, **kwargs)
-      sentry_sdk.flush()  # https://github.com/getsentry/sentry-python/issues/291
-    except Exception:
-      cloudlog.exception("sentry exception")
+    sentry_sdk.capture_exception(*args, **kwargs)
+    sentry_sdk.flush()  # https://github.com/getsentry/sentry-python/issues/291
+  except Exception:
+    cloudlog.exception("sentry exception")
 
   threading.Thread(target=capture_exception_thread, daemon=True).start()
 
