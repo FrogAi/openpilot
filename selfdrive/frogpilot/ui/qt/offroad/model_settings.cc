@@ -40,7 +40,7 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
           }
 
           if (blacklistableModels.size() <= 1) {
-            FrogPilotConfirmationDialog::toggleAlert(tr("There are no more models to blacklist! The only available model is \"%1\"!").arg(blacklistableModels.first()), tr("OK"), this);
+            FrogPilotConfirmationDialog::toggleAlert(tr("There are no more models to blacklist! The only available model is \"%1\"!").arg(blacklistableModels.first()), tr("Ok"), this);
           } else {
             QString modelToBlacklist = MultiOptionDialog::getSelection(tr("Select a model to add to the blacklist"), blacklistableModels, "", this);
             if (!modelToBlacklist.isEmpty()) {
@@ -200,7 +200,7 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
           params.put("Model", modelFileToNameMap.key(modelToSelect).toStdString());
 
           if (started) {
-            if (FrogPilotConfirmationDialog::toggle(tr("Reboot required to take effect."), tr("Reboot Now"), this)) {
+            if (FrogPilotConfirmationDialog::toggleReboot(this)) {
               Hardware::reboot();
             }
           }

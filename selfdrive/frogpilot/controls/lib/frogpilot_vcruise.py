@@ -32,6 +32,7 @@ class FrogPilotVCruise:
     self.slc_offset = 0
     self.slc_target = 0
     self.speed_limit_timer = 0
+    self.stsc_target = 0
     self.tracked_model_length = 0
     self.vtsc_target = 0
 
@@ -62,6 +63,10 @@ class FrogPilotVCruise:
 
     # FrogsGoMoo's Smart Turn Speed Controller
     self.stsc.update(carControl, v_cruise, round(v_ego, 2))
+    if frogpilot_toggles.smart_turn_speed_controller and v_ego > CRUISING_SPEED and carControl.longActive and self.frogpilot_planner.road_curvature_detected:
+      self.stsc_target = self.stsc.stsc_target
+    else:
+      self.stsc_target = v_cruise if v_cruise != V_CRUISE_UNSET else 0
 
     # Pfeiferj's Map Turn Speed Controller
     if frogpilot_toggles.map_turn_speed_controller and v_ego > CRUISING_SPEED and carControl.longActive:
@@ -149,12 +154,13 @@ class FrogPilotVCruise:
       self.tracked_model_length = self.frogpilot_planner.model_length
 
       if frogpilot_toggles.speed_limit_controller:
-        targets = [self.mtsc_target, max(self.overridden_speed, self.slc_target + self.slc_offset) - v_ego_diff, self.vtsc_target]
+        targets = [self.mtsc_target, max(self.overridden_speed, self.slc_target + self.slc_offset) - v_ego_diff, self.stsc_target, self.vtsc_target]
       else:
-        targets = [self.mtsc_target, self.vtsc_target]
+        targets = [self.mtsc_target, self.stsc_target, self.vtsc_target]
       v_cruise = float(min([target if target > CRUISING_SPEED else v_cruise for target in targets]))
 
     self.mtsc_target = clip(self.mtsc_target, self.mtsc_target + v_cruise_diff, v_cruise)
+    self.stsc_target = clip(self.stsc_target, self.mtsc_target + v_cruise_diff, v_cruise)
     self.vtsc_target = clip(self.vtsc_target, self.mtsc_target + v_cruise_diff, v_cruise)
 
     return v_cruise

@@ -35,7 +35,7 @@ from urllib.parse import quote
 
 from openpilot.common.params import ParamKeyType
 from openpilot.selfdrive.car.toyota.carcontroller import LOCK_CMD, UNLOCK_CMD
-from openpilot.system.hardware import PC
+from openpilot.system.hardware import HARDWARE, PC
 from openpilot.system.hardware.hw import Paths
 from openpilot.system.loggerd.uploader import listdir_by_creation
 from openpilot.system.loggerd.xattr_cache import getxattr
@@ -467,6 +467,10 @@ def get_all_toggle_values():
 
   return encode_parameters(toggle_values)
 
+def reset_toggle_values():
+  params.put_bool("DoToggleReset", True)
+  HARDWARE.reboot()
+
 def store_toggle_values(request_data):
   excluded_keys = [
     "ApiCache_NavDestinations", "CalibrationParams", "CarParamsPersistent",
@@ -495,3 +499,6 @@ def unlock_doors():
   panda.can_send(0x750, UNLOCK_CMD, 0)
   panda.set_safety_mode(panda.SAFETY_TOYOTA)
   panda.send_heartbeat()
+
+def reboot_device():
+  HARDWARE.reboot()

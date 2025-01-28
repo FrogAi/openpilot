@@ -227,11 +227,11 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     QObject::connect(static_cast<ToggleControl*>(toggles[key]), &ToggleControl::toggleFlipped, [this, key](bool state) {
       if (started) {
         if (key == "AlwaysOnLateral" && state) {
-          if (FrogPilotConfirmationDialog::toggle(tr("Reboot required to take effect."), tr("Reboot Now"), this)) {
+          if (FrogPilotConfirmationDialog::toggleReboot(this)) {
             Hardware::reboot();
           }
         } else if (key != "AlwaysOnLateral") {
-          if (FrogPilotConfirmationDialog::toggle(tr("Reboot required to take effect."), tr("Reboot Now"), this)) {
+          if (FrogPilotConfirmationDialog::toggleReboot(this)) {
             Hardware::reboot();
           }
         }

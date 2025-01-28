@@ -189,7 +189,7 @@ def update_maps(now):
   while not MAPD_PATH.exists():
     time.sleep(60)
 
-  maps_selected = json.loads(params.get("MapsSelected", encoding="utf8") or "{}")
+  maps_selected = json.loads(params.get("MapsSelected", encoding="utf-8") or "{}")
   if not maps_selected.get("nations") and not maps_selected.get("states"):
     return
 
@@ -226,7 +226,7 @@ def update_openpilot(manually_updated, frogpilot_toggles):
   if not params.get_bool("UpdaterFetchAvailable"):
     return
 
-  while params.get("UpdaterState", encoding="utf8") != "idle":
+  while params.get("UpdaterState", encoding="utf-8") != "idle":
     time.sleep(60)
 
   subprocess.run(["pkill", "-SIGHUP", "-f", "system.updated.updated"], check=False)

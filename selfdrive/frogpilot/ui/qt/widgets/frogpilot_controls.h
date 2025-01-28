@@ -45,9 +45,9 @@ class FrogPilotConfirmationDialog : public ConfirmationDialog {
 public:
   explicit FrogPilotConfirmationDialog(const QString &prompt_text, const QString &confirm_text,
                                        const QString &cancel_text, const bool rich, QWidget *parent);
-  static bool toggle(const QString &prompt_text, const QString &confirm_text, QWidget *parent, const bool isLong=false);
   static bool toggleAlert(const QString &prompt_text, const QString &button_text, QWidget *parent, const bool isLong=false);
-  static bool yesorno(const QString &prompt_text, QWidget *parent, const bool isLong=false);
+  static bool toggleReboot(QWidget *parent);
+  static bool yesorno(const QString &prompt_text, QWidget *parent);
 };
 
 class FrogPilotListWidget : public QWidget {
@@ -111,7 +111,6 @@ public:
       button->setMinimumWidth(minimumButtonWidth);
       hlayout->addWidget(button);
       buttonGroup->addButton(button, i);
-      button->installEventFilter(this);
     }
 
     QObject::connect(buttonGroup, QOverload<int>::of(&QButtonGroup::buttonClicked), [=](int id) {
@@ -151,18 +150,6 @@ public:
 
 signals:
   void buttonClicked(int id);
-  void disabledButtonClicked(int id);
-
-protected:
-  bool eventFilter(QObject *obj, QEvent *event) override {
-    if (event->type() == QEvent::MouseButtonPress) {
-      QPushButton *button = qobject_cast<QPushButton *>(obj);
-      if (button && !button->isEnabled()) {
-        emit disabledButtonClicked(buttonGroup->id(button));
-      }
-    }
-    return AbstractControl::eventFilter(obj, event);
-  }
 
 private:
   QButtonGroup *buttonGroup;
@@ -174,9 +161,9 @@ class FrogPilotButtonToggleControl : public ParamControl {
 public:
   FrogPilotButtonToggleControl(const QString &param, const QString &title, const QString &desc,
                                const std::vector<QString> &buttonParams, const std::vector<QString> &buttonLabels,
-                               const bool exclusive = false, const int minimumButtonWidth = 225, QWidget *parent = nullptr)
+                               const bool exclusive = false, const bool hideToggle = false, const int minimumButtonWidth = 225, QWidget *parent = nullptr)
   : ParamControl(param, title, desc, "", parent),
-  key(param.toStdString()), buttonParams(buttonParams), buttonGroup(new QButtonGroup(this)) {
+  key(param.toStdString()), buttonParams(buttonParams), buttonGroup(new QButtonGroup(this)), hideToggle(hideToggle) {
     buttonGroup->setExclusive(exclusive);
 
     for (int i = 0; i < buttonLabels.size(); ++i) {
@@ -186,6 +173,7 @@ public:
       button->setMinimumWidth(minimumButtonWidth);
       hlayout->addWidget(button);
       buttonGroup->addButton(button, i);
+      button->installEventFilter(this);
     }
 
     hlayout->addWidget(&toggle);
@@ -196,11 +184,15 @@ public:
       emit buttonClicked(id);
     });
 
+    if (hideToggle) {
+      toggle.hide();
+    }
+
     QObject::connect(this, &ToggleControl::toggleFlipped, this, &FrogPilotButtonToggleControl::refresh);
   }
 
   void refresh() {
-    bool state = params.getBool(key);
+    bool state = params.getBool(key) || hideToggle;
     if (state != toggle.on) {
       toggle.togglePosition();
     }
@@ -215,6 +207,12 @@ public:
     }
   }
 
+  void setEnabledButtons(int id, bool enable) {
+    if (QAbstractButton *button = buttonGroup->button(id)) {
+      button->setEnabled(enable);
+    }
+  }
+
   void setVisibleButton(int id, bool visible) {
     if (QAbstractButton *button = buttonGroup->button(id)) {
       button->setVisible(visible);
@@ -223,8 +221,19 @@ public:
 
 signals:
   void buttonClicked(int id);
+  void disabledButtonClicked(int id);
 
 protected:
+  bool eventFilter(QObject *obj, QEvent *event) override {
+    if (event->type() == QEvent::MouseButtonPress) {
+      QPushButton *button = qobject_cast<QPushButton *>(obj);
+      if (button && !button->isEnabled()) {
+        emit disabledButtonClicked(buttonGroup->id(button));
+      }
+    }
+    return AbstractControl::eventFilter(obj, event);
+  }
+
   void showEvent(QShowEvent *event) override {
     refresh();
     QObject::connect(this, &ToggleControl::toggleFlipped, this, &FrogPilotButtonToggleControl::refresh);
@@ -234,6 +243,8 @@ private:
   Params params;
 
   QButtonGroup *buttonGroup;
+
+  bool hideToggle;
 
   std::string key;
   std::vector<QString> buttonParams;
@@ -294,11 +305,10 @@ public:
 
   FrogPilotParamValueControl(const QString &param, const QString &title, const QString &desc, const QString &icon,
                              const float minValue, const float maxValue, const QString &label = "", const std::map<int, QString> &valueLabels = {},
-                             const float interval = 1.0f, const bool compactSize = false, const bool instantUpdate = false)
+                             const float interval = 1.0f, const bool compactSize = false)
     : AbstractControl(title, desc, icon), key(param.toStdString()), minValue(minValue), maxValue(maxValue),
       labelText(label), interval(interval), valueLabels(valueLabels),
-      decimalPlaces(std::ceil(-std::log10(interval))), factor(std::pow(10.0f, decimalPlaces)),
-      instantUpdate(instantUpdate) {
+      decimalPlaces(std::ceil(-std::log10(interval))), factor(std::pow(10.0f, decimalPlaces)) {
 
     setupButton(decrementButton, "-");
     setupButton(incrementButton, "+");
@@ -338,6 +348,10 @@ signals:
   void valueChanged(float value);
 
 protected:
+  void hideEvent(QHideEvent *event) override {
+    params.putFloat(key, value);
+  }
+
   void showEvent(QShowEvent *event) override {
     refresh();
   }
@@ -352,9 +366,7 @@ private slots:
   }
 
   void onButtonReleased() {
-    if (instantUpdate) {
-      params.putFloat(key, value);
-    }
+    params.putFloat(key, value);
 
     float lastValue = value;
     QTimer::singleShot(50, this, [this, lastValue]() {
@@ -363,10 +375,6 @@ private slots:
       }
 
       previousDelta = false;
-      if (!instantUpdate) {
-        params.putFloat(key, value);
-        emit valueChanged(value);
-      }
     });
   }
 
@@ -385,9 +393,7 @@ private:
 
     updateValueDisplay();
 
-    if (instantUpdate) {
-      emit valueChanged(value);
-    }
+    emit valueChanged(value);
   }
 
   void updateValueDisplay() {
@@ -428,7 +434,6 @@ private:
 
   QString labelText;
 
-  bool instantUpdate;
   bool previousDelta;
 
   int decimalPlaces;

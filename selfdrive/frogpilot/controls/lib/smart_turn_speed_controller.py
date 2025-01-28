@@ -11,6 +11,7 @@ from openpilot.selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX
 
 from openpilot.selfdrive.frogpilot.frogpilot_variables import CRUISING_SPEED, PLANNER_TIME, params
 
+CACHE_WINDOW = 1
 CURVATURE_THRESHOLD = 1e-10
 ROUNDING_PRECISION = 10
 
@@ -20,7 +21,39 @@ class SmartTurnSpeedController:
 
     self.data = SortedDict({entry["speed"]: [np.array([curve["curvature"], curve["lateral_accel"]]) for curve in entry.get("curvatures", [])] for entry in json.loads(params.get("UserCurvature") or "[]")})
 
+    self.last_cached_speed = 0
     self.manual_long_timer = 0
+    self.stsc_target = 0
+
+    self.cached_entries = None
+    self.cached_speeds = None
+
+  def update_cache(self, v_ego):
+    if abs(self.last_cached_speed - v_ego) <= CACHE_WINDOW / 2:
+      return
+
+    speeds_in_range = list(self.data.irange(v_ego - CACHE_WINDOW, v_ego + CACHE_WINDOW))
+    if speeds_in_range:
+      self.cached_entries = np.vstack([self.data[speed] for speed in speeds_in_range])
+      self.cached_speeds = np.array(speeds_in_range)
+    else:
+      self.cached_entries = self.cached_speeds = None
+
+    self.last_cached_speed = v_ego
+
+  def set_stsc_target(self, carControl, v_cruise, v_ego):
+    if not self.data or v_ego < CRUISING_SPEED or not carControl.longActive:
+      self.stsc_target = v_cruise
+      return
+
+    self.update_cache(v_ego)
+    if self.cached_speeds is None:
+      self.stsc_target = v_cruise
+      return
+
+    road_curvature = round(self.frogpilot_vcruise.frogpilot_planner.road_curvature, ROUNDING_PRECISION)
+    closest_entry = min(self.cached_entries, key=lambda x: abs(x[0] - road_curvature))
+    self.stsc_target = clip((closest_entry[1] / closest_entry[0])**0.5, CRUISING_SPEED, v_cruise)
 
   def update_curvature_data(self, v_ego):
     road_curvature = round(self.frogpilot_vcruise.frogpilot_planner.road_curvature, ROUNDING_PRECISION)
@@ -51,4 +84,5 @@ class SmartTurnSpeedController:
       self.manual_long_timer = 0
 
     else:
+      self.set_stsc_target(carControl, v_cruise, v_ego)
       self.manual_long_timer = 0

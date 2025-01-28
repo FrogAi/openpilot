@@ -149,19 +149,19 @@ def fill_model_msg(base_msg: capnp._DynamicStructBuilder, extended_msg: capnp._D
     if i < 4:
       fill_xyzt(lane_line, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), net_output_data['lane_lines'][0,i,:,0], net_output_data['lane_lines'][0,i,:,1])
     elif i == 4:
-      if lane_probs[0] > 0.5:
+      if lane_probs[0] > 0:
         leftLane_x = 0.5 * (net_output_data['lane_lines'][0,0,:,0] + net_output_data['lane_lines'][0,1,:,0])
         leftLane_y = 0.5 * (net_output_data['lane_lines'][0,0,:,1] + net_output_data['lane_lines'][0,1,:,1])
         fill_xyzt(lane_line, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), leftLane_x, leftLane_y)
       else:
         fill_xyzt(lane_line, PLAN_T_IDXS, np.empty((0,)), np.empty((0,)), np.empty((0,)))
     elif i == 5:
-      if lane_probs[3] > 0.5:
+      if lane_probs[3] > 0:
         rightLane_x = 0.5 * (net_output_data['lane_lines'][0,2,:,0] + net_output_data['lane_lines'][0,3,:,0])
         rightLane_y = 0.5 * (net_output_data['lane_lines'][0,2,:,1] + net_output_data['lane_lines'][0,3,:,1])
-        fill_xyzt(lane_line, PLAN_T_IDXS, np.empty((0,)), np.empty((0,)), np.empty((0,)))
+        fill_xyzt(lane_line, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), rightLane_x, rightLane_y)
       else:
-        fill_xyzt(lane_line, PLAN_T_IDXS, np.empty(ModelConstants.X_IDXS), np.empty(ModelConstants.IDX_N), np.empty(ModelConstants.IDX_N))
+        fill_xyzt(lane_line, PLAN_T_IDXS, np.empty((0,)), np.empty((0,)), np.empty((0,)))
   modelV2.laneLineStds = net_output_data['lane_lines_stds'][0,:,0,0].tolist()
   modelV2.laneLineProbs = lane_probs
 

@@ -75,7 +75,7 @@ Tools
 
   <div class="separator"></div>
 
-  <h1>Toggle Values</h1>
+  <h1>Backup/Restore Toggle Values</h1>
   <div class="textarea-container">
     <textarea id="toggleValuesBox" placeholder="Retrieve or restore toggle values."></textarea>
     <button type="button" id="retrieveButton" class="toggle-values-btn">
@@ -85,14 +85,53 @@ Tools
       Submit Toggle Values
     </button>
   </div>
+
+  <div class="separator"></div>
+
+  <h1>Reset Toggle Values</h1>
+  <div class="textarea-container">
+    <button type="button" id="resetButton" class="toggle-values-btn">
+      Reset Toggle Values
+    </button>
+  </div>
+
+  <div class="separator"></div>
+
+  <h1>Reboot Device</h1>
+  <div class="textarea-container">
+    <button type="button" id="rebootButton" class="toggle-values-btn">
+      Reboot Device
+    </button>
+  </div>
 </div>
 
 <script>
   const toggleValuesBox = document.getElementById('toggleValuesBox');
+  const rebootButton = document.getElementById('rebootButton');
   const retrieveButton = document.getElementById('retrieveButton');
+  const resetButton = document.getElementById('resetButton');
   const restoreButton = document.getElementById('restoreButton');
   const lockButton = document.getElementById('lockButton');
   const unlockButton = document.getElementById('unlockButton');
+
+  rebootButton.addEventListener('click', () => {
+    fetch('/reboot_device', {
+      method: 'POST'
+    })
+      .then(response =>
+        response.json().then(data => ({ status: response.status, body: data }))
+      )
+      .then(result => {
+        if (result.status === 200) {
+          alert(result.body.message);
+        } else {
+          alert('Error rebooting device: ' + result.body.error);
+        }
+      })
+      .catch(error =>
+        console.error('Error rebooting device:', error)
+      );
+  });
 
   retrieveButton.addEventListener('click', () => {
     fetch('/get_toggle_values')
@@ -102,6 +141,25 @@ Tools
       })
       .catch(error =>
         console.error('Error fetching toggle values:', error)
+      );
+  });
+
+  resetButton.addEventListener('click', () => {
+    fetch('/reset_toggle_values', {
+      method: 'POST'
+    })
+      .then(response =>
+        response.json().then(data => ({ status: response.status, body: data }))
+      )
+      .then(result => {
+        if (result.status === 200) {
+          alert(result.body.message);
+        } else {
+          alert('Error resetting toggle values: ' + result.body.error);
+        }
+      })
+      .catch(error =>
+        console.error('Error resetting toggle values:', error)
       );
   });
 

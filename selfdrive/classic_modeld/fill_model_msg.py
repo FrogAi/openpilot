@@ -99,14 +99,14 @@ def fill_model_msg(msg: capnp._DynamicStructBuilder, net_output_data: dict[str, 
     if i < 4:
       fill_xyzt(lane_line, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), net_output_data['lane_lines'][0,i,:,0], net_output_data['lane_lines'][0,i,:,1])
     elif i == 4:
-      if lane_probs[0] > 0.5:
+      if lane_probs[0] > 0:
         leftLane_x = 0.5 * (net_output_data['lane_lines'][0,0,:,0] + net_output_data['lane_lines'][0,1,:,0])
         leftLane_y = 0.5 * (net_output_data['lane_lines'][0,0,:,1] + net_output_data['lane_lines'][0,1,:,1])
         fill_xyzt(lane_line, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), leftLane_x, leftLane_y)
       else:
         fill_xyzt(lane_line, PLAN_T_IDXS, np.empty((0,)), np.empty((0,)), np.empty((0,)))
     elif i == 5:
-      if lane_probs[3] > 0.5:
+      if lane_probs[3] > 0:
         rightLane_x = 0.5 * (net_output_data['lane_lines'][0,2,:,0] + net_output_data['lane_lines'][0,3,:,0])
         rightLane_y = 0.5 * (net_output_data['lane_lines'][0,2,:,1] + net_output_data['lane_lines'][0,3,:,1])
         fill_xyzt(lane_line, PLAN_T_IDXS, np.array(ModelConstants.X_IDXS), rightLane_x, rightLane_y)

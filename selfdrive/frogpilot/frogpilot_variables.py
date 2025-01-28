@@ -126,6 +126,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("DeviceShutdown", "9", 1),
   ("DisableOnroadUploads", "0", 2),
   ("DisableOpenpilotLongitudinal", "0", 2),
+  ("DiscordUsername", "", 0),
   ("DisengageVolume", "101", 2),
   ("DriverCamera", "0", 1),
   ("DynamicPathWidth", "0", 2),
@@ -174,7 +175,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("LeadDetectionThreshold", "35", 3),
   ("LeadInfo", "1", 3),
   ("LockDoors", "1", 0),
-  ("LockDoorsTimer", "0", 3),
+  ("LockDoorsTimer", "0", 0),
   ("LongitudinalMetrics", "1", 3),
   ("LongitudinalTune", "1", 0),
   ("LongPitch", "1", 2),
@@ -275,6 +276,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("SLCPriority1", "Navigation", 2),
   ("SLCPriority2", "Map Data", 2),
   ("SLCPriority3", "Dashboard", 2),
+  ("SmartTurnControl", "0", 1),
   ("SNGHack", "1", 2),
   ("SpeedLimitChangedAlert", "1", 0),
   ("SpeedLimitController", "1", 0),
@@ -477,6 +479,7 @@ class FrogPilotVariables:
     toggle.turn_aggressiveness = params.get_int("TurnAggressiveness") / 100 if toggle.curve_speed_controller and tuning_level >= level["TurnAggressiveness"] else default.get_int("TurnAggressiveness") / 100
     toggle.map_turn_speed_controller = toggle.curve_speed_controller and (params.get_bool("MapTurnControl") if tuning_level >= level["MapTurnControl"] else default.get_bool("MapTurnControl"))
     toggle.mtsc_curvature_check = toggle.map_turn_speed_controller and (params.get_bool("MTSCCurvatureCheck") if tuning_level >= level["MTSCCurvatureCheck"] else default.get_bool("MTSCCurvatureCheck"))
+    toggle.smart_turn_speed_controller = False
     toggle.vision_turn_speed_controller = toggle.curve_speed_controller and (params.get_bool("VisionTurnControl") if tuning_level >= level["VisionTurnControl"] else default.get_bool("VisionTurnControl"))
 
     toggle.custom_alerts = params.get_bool("CustomAlerts") if tuning_level >= level["CustomAlerts"] else default.get_bool("CustomAlerts")
@@ -631,9 +634,9 @@ class FrogPilotVariables:
           toggle.model_name = toggle.available_model_names.split(",")[toggle.available_models.split(",").index(toggle.model)]
           toggle.model_version = default.get("ModelVersion", encoding='utf-8')
     else:
-      toggle.model = DEFAULT_MODEL
-      toggle.model_name = DEFAULT_MODEL_NAME
-      toggle.model_version = DEFAULT_MODEL_VERSION
+      toggle.model = DEFAULT_CLASSIC_MODEL
+      toggle.model_name = DEFAULT_CLASSIC_MODEL_NAME
+      toggle.model_version = DEFAULT_CLASSIC_MODEL_VERSION
     toggle.classic_model = toggle.model_version in {"v1", "v2", "v3", "v4"}
     toggle.planner_curvature_model = toggle.model_version not in {"v1", "v2", "v3", "v4", "v5"}
     toggle.radarless_model = toggle.model_version in {"v3"}

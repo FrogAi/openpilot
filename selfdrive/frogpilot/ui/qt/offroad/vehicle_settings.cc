@@ -58,8 +58,8 @@ QStringList getCarNames(const QString &carMake, QMap<QString, QString> &carModel
   QRegularExpressionMatchIterator platformMatches = platformRegex.globalMatch(fileContent);
   while (platformMatches.hasNext()) {
     QRegularExpressionMatch platformMatch = platformMatches.next();
-    QString platformName = platformMatch.captured(1);
-    QString platformSection = platformMatch.captured(2);
+    QString platformName = platformMatch.captured(2);
+    QString platformSection = platformMatch.captured(3);
 
     QRegularExpressionMatchIterator carNameMatches = carNameRegex.globalMatch(platformSection);
     while (carNameMatches.hasNext()) {
@@ -130,7 +130,7 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
     if (state) {
       if (FrogPilotConfirmationDialog::yesorno(tr("Are you sure you want to completely disable openpilot longitudinal control?"), this)) {
         if (started) {
-          if (FrogPilotConfirmationDialog::toggle(tr("Reboot required to take effect."), tr("Reboot Now"), this)) {
+          if (FrogPilotConfirmationDialog::toggleReboot(this)) {
             Hardware::reboot();
           }
         }
@@ -236,7 +236,7 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
   for (const QString &key : rebootKeys) {
     QObject::connect(static_cast<ToggleControl*>(toggles[key]), &ToggleControl::toggleFlipped, [this]() {
       if (started) {
-        if (FrogPilotConfirmationDialog::toggle(tr("Reboot required to take effect."), tr("Reboot Now"), this)) {
+        if (FrogPilotConfirmationDialog::toggleReboot(this)) {
           Hardware::reboot();
         }
       }

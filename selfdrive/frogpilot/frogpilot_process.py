@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import datetime
+import json
 import time
 
 import openpilot.system.sentry as sentry
@@ -21,15 +22,20 @@ from openpilot.selfdrive.frogpilot.frogpilot_utilities import flash_panda, is_ur
 from openpilot.selfdrive.frogpilot.frogpilot_variables import FrogPilotVariables, get_frogpilot_toggles, params, params_memory
 
 def assets_checks(model_manager, theme_manager):
-  if params_memory.get_bool("FlashPanda"):
-    run_thread_with_lock("flash_panda", flash_panda)
-
   if params_memory.get_bool("DownloadAllModels"):
     run_thread_with_lock("download_all_models", model_manager.download_all_models)
+
+  if params_memory.get_bool("FlashPanda"):
+    run_thread_with_lock("flash_panda", flash_panda)
 
   model_to_download = params_memory.get(MODEL_DOWNLOAD_PARAM, encoding='utf-8')
   if model_to_download is not None:
     run_thread_with_lock("download_model", model_manager.download_model, (model_to_download,))
+
+  report_data = json.loads(params_memory.get("IssueReported", encoding="utf-8") or "{}")
+  if report_data:
+    sentry.capture_report(report_data["DiscordUser"], report_data["Issue"], vars(get_frogpilot_toggles()))
+    params_memory.remove("IssueReported")
 
   assets = [
     ("ColorToDownload", "colors"),
