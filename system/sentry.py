@@ -54,10 +54,9 @@ def capture_exception(*args, **kwargs) -> None:
 
 def capture_fingerprint(frogpilot_toggles, params, params_tracking):
   if frogpilot_toggles.block_user:
-    with sentry_sdk.push_scope() as scope:
-      sentry_sdk.capture_message("Blocked user from using the development branch", level="warning")
-      sentry_sdk.flush()
-      return
+    sentry_sdk.capture_message("Blocked user from using the development branch", level="warning")
+    sentry_sdk.flush()
+    return
 
   param_types = {
     "FrogPilot Controls": ParamKeyType.FROGPILOT_CONTROLS,
