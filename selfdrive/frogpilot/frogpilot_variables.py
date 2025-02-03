@@ -41,6 +41,8 @@ THEME_SAVE_PATH = Path("/data/themes")
 
 CRASHES_DIR = Path("/data/crashes")
 
+KONIK_PATH = Path("/data/openpilot/use_konik")
+
 MAPD_PATH = Path("/data/media/0/osm/mapd")
 MAPS_PATH = Path("/data/media/0/osm/offline")
 
@@ -328,6 +330,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("TurnDesires", "0", 2),
   ("UnlimitedLength", "1", 2),
   ("UnlockDoors", "1", 0),
+  ("UseKonikServer", "0", 0),
   ("UseSI", "1", 3),
   ("UseVienna", "0", 2),
   ("VisionTurnControl", "1", 1),
@@ -358,6 +361,16 @@ class FrogPilotVariables:
 
     self.frogpilot_toggles.frogs_go_moo = Path("/persist/frogsgomoo.py").is_file()
     self.frogpilot_toggles.block_user = self.development_branch and not self.frogpilot_toggles.frogs_go_moo
+
+    self.not_vetted = self.testing_branch and Path("/data/openpilot/not_vetted").is_file()
+
+    self.frogpilot_toggles.use_konik_server = params.get_bool("UseKonikServer")
+    self.frogpilot_toggles.use_konik_server |= self.not_vetted
+
+    if self.frogpilot_toggles.use_konik_server:
+      KONIK_PATH.touch(exist_ok=True)
+    else:
+      KONIK_PATH.unlink(missing_ok=True)
 
     for k, v, _ in frogpilot_default_params:
       params_default.put(k, v)
@@ -569,8 +582,8 @@ class FrogPilotVariables:
     toggle.device_shutdown_time = (device_shutdown_setting - 3) * 3600 if device_shutdown_setting >= 4 else device_shutdown_setting * (60 * 15)
     toggle.increase_thermal_limits = device_management and (params.get_bool("IncreaseThermalLimits") if tuning_level >= level["IncreaseThermalLimits"] else default.get_bool("IncreaseThermalLimits"))
     toggle.low_voltage_shutdown = np.clip(params.get_float("LowVoltageShutdown"), VBATT_PAUSE_CHARGING, 12.5) if device_management and tuning_level >= level["LowVoltageShutdown"] else default.get_float("LowVoltageShutdown")
-    toggle.no_logging = True #(device_management and (params.get_bool("NoLogging") if tuning_level >= level["NoLogging"] else default.get_bool("NoLogging")) or self.development_branch) and not self.vetting_branch
-    toggle.no_uploads = True #(device_management and (params.get_bool("NoUploads") if tuning_level >= level["NoUploads"] else default.get_bool("NoUploads")) or self.development_branch) and not self.vetting_branch
+    toggle.no_logging = (device_management and (params.get_bool("NoLogging") if tuning_level >= level["NoLogging"] else default.get_bool("NoLogging")) or self.development_branch or self.not_vetted) and not self.vetting_branch
+    toggle.no_uploads = (device_management and (params.get_bool("NoUploads") if tuning_level >= level["NoUploads"] else default.get_bool("NoUploads")) or self.development_branch or self.not_vetted) and not self.vetting_branch
     toggle.no_onroad_uploads = toggle.no_uploads and (params.get_bool("DisableOnroadUploads") if tuning_level >= level["DisableOnroadUploads"] else default.get_bool("DisableOnroadUploads"))
     toggle.offline_mode = device_management and (params.get_bool("OfflineMode") if tuning_level >= level["OfflineMode"] else default.get_bool("OfflineMode"))
 

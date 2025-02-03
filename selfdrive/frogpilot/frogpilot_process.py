@@ -15,7 +15,6 @@ from openpilot.common.basedir import BASEDIR
 from openpilot.common.params import Params
 from openpilot.common.realtime import Priority, config_realtime_process
 from openpilot.common.time import system_time_valid
-from openpilot.system.hardware import HARDWARE
 
 from openpilot.selfdrive.frogpilot.assets.model_manager import ModelManager, MODEL_DOWNLOAD_PARAM
 from openpilot.selfdrive.frogpilot.assets.theme_manager import ThemeManager

@@ -5,7 +5,7 @@
 FrogPilotDataPanel::FrogPilotDataPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {
   ButtonControl *deleteDrivingDataBtn = new ButtonControl(tr("Delete Driving Footage and Data"), tr("DELETE"), tr("Permanently deletes all stored driving footage and data from your device. Ideal for maintaining privacy or freeing up space."));
   QObject::connect(deleteDrivingDataBtn, &ButtonControl::clicked, [=]() {
-    QDir realdataDir("/data/media/0/realdata");
+    QDir realdataDir(QString::fromStdString(Path::log_root()));
 
     if (ConfirmationDialog::confirm(tr("Are you sure you want to permanently delete all of your driving footage and data?"), tr("Delete"), this)) {
       std::thread([=]() mutable {
@@ -15,7 +15,7 @@ FrogPilotDataPanel::FrogPilotDataPanel(FrogPilotSettingsWindow *parent) : FrogPi
         deleteDrivingDataBtn->setValue(tr("Deleting..."));
 
         realdataDir.removeRecursively();
-        realdataDir.mkpath(".");
+        util::create_directories(Path::log_root(), 0775);
 
         deleteDrivingDataBtn->setValue(tr("Deleted!"));
         util::sleep_for(2500);
