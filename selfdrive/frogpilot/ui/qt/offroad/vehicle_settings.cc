@@ -157,12 +157,14 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
 
     {"HKGToggles", tr("Hyundai/Kia/Genesis Toggles"), tr("Toggles catered towards 'Hyundai/Kia/Genesis' vehicles."), ""},
     {"NewLongAPI", tr("Enable comma's New Longitudinal API"), tr("Enable comma's new longitudinal control system that has shown great improvement with acceleration and braking, but has issues on some Hyundai/Kia/Genesis vehicles."), ""},
+    {"TacoTuneHacks", tr("'Taco Bell Run' Turn Torque Hack"), tr("Enable comma's steering torque hack they used to help handle left and right turns more precisely during their 2022 'Taco Bell' drive by increasing the allowed torque while turning."), ""},
 
     {"ToyotaToggles", tr("Toyota/Lexus Toggles"), tr("Toggles catered towards 'Toyota/Lexus' vehicles."), ""},
     {"ToyotaDoors", tr("Automatically Lock/Unlock Doors"), tr("Automatically lock the doors when in drive and unlock when in park."), ""},
     {"ClusterOffset", tr("Cluster Speed Offset"), tr("Set the cluster offset openpilot uses to try and match the speed displayed on the dash."), ""},
     {"FrogsGoMoosTweak", tr("Enable FrogsGoMoo's Personal Tweaks"), tr("FrogsGoMoo's personal tweaks that aim to take off faster and stop smoother."), ""},
     {"SNGHack", tr("Enable Stop and Go Hack"), tr("Force stop and go for vehicles without stock stop and go functionality."), ""},
+    {"LockDoorsTimer", tr("Lock Doors On Ignition Off After"), tr("Automatically lock the doors after the car's ignition has been turned off and no one is detected in either of the front seats."), ""},
   };
 
   for (const auto &[param, title, desc, icon] : vehicleToggles) {
@@ -195,6 +197,12 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
       std::vector<QString> lockToggles{"LockDoors", "UnlockDoors"};
       std::vector<QString> lockToggleNames{tr("Lock"), tr("Unlock")};
       vehicleToggle = new FrogPilotButtonToggleControl(param, title, desc, icon, lockToggles, lockToggleNames);
+    } else if (param == "LockDoorsTimer") {
+      std::map<float, QString> autoLockLabels;
+      for (int i = 0; i <= 300; ++i) {
+        autoLockLabels[i] = i == 0 ? tr("Never") : QString::number(i) + " seconds";
+      }
+      vehicleToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 300, QString(), autoLockLabels, 5);
     } else if (param == "ClusterOffset") {
       std::vector<QString> clusterOffsetButton{"Reset"};
       FrogPilotParamValueButtonControl *clusterOffsetToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 1.000, 1.050, "x", std::map<float, QString>(), 0.001, {}, clusterOffsetButton, false, false);
@@ -287,6 +295,10 @@ void FrogPilotVehiclesPanel::updateToggles() {
 
     if (key == "SNGHack") {
       setVisible &= !parent->hasSNG;
+    }
+
+    if (key == "TacoTuneHacks") {
+      setVisible &= parent->allowTacoHacks;
     }
 
     if (key == "VoltSNG") {

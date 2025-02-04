@@ -134,6 +134,7 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
   QString speedLimitOffsetStr = (slcSpeedLimitOffset == 0) ? "–" : QString::number(slcSpeedLimitOffset, 'f', 0).prepend((slcSpeedLimitOffset > 0) ? "+" : "");
   QString speedStr = QString::number(std::nearbyint(speed));
   QString setSpeedStr = is_cruise_set ? QString::number(std::nearbyint(setSpeed)) : "–";
+  QString stscSpeedStr = (stscSpeed > 1) ? QString::number(std::nearbyint(fmin(speed, stscSpeed))) + speedUnit : "–";
   QString vtscSpeedStr = (vtscSpeed > 1) ? QString::number(std::nearbyint(fmin(speed, vtscSpeed))) + speedUnit : "–";
 
   // Draw outer box + border to contain set speed and speed limit
@@ -191,9 +192,13 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
 
   if (!speedLimitChanged && is_cruise_set && (setSpeed - mtscSpeed > 1 || setSpeed - vtscSpeed > 1) && !hideCSCUI) {
     std::function<void(const QRect&, const QString&, bool)> drawCurveSpeedControl = [&](const QRect &rect, const QString &speedStr, bool isMtsc) {
-      if (isMtsc && !vtscControllingCurve) {
+      if (isMtsc && !stscControllingCurve && !vtscControllingCurve) {
         p.setPen(QPen(greenColor(), 10));
         p.setBrush(greenColor(166));
+        p.setFont(InterFont(45, QFont::Bold));
+      } else if (!isMtsc && stscControllingCurve) {
+        p.setPen(QPen(blueColor(), 10));
+        p.setBrush(blueColor(166));
         p.setFont(InterFont(45, QFont::Bold));
       } else if (!isMtsc && vtscControllingCurve) {
         p.setPen(QPen(redColor(), 10));
@@ -218,16 +223,16 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
     p.drawPixmap(curveSpeedRect, scaledCurveSpeedIcon);
 
     if (mtscEnabled) {
-      QRect mtscRect(curveSpeedRect.topLeft() + QPoint(0, curveSpeedRect.height() + 10), QSize(curveSpeedRect.width(), vtscControllingCurve ? 50 : 100));
+      QRect mtscRect(curveSpeedRect.topLeft() + QPoint(0, curveSpeedRect.height() + 10), QSize(curveSpeedRect.width(), stscControllingCurve || vtscControllingCurve ? 50 : 100));
       drawCurveSpeedControl(mtscRect, mtscSpeedStr, true);
 
-      if (vtscEnabled) {
-        QRect vtscRect(mtscRect.topLeft() + QPoint(0, mtscRect.height() + 20), QSize(mtscRect.width(), vtscControllingCurve ? 100 : 50));
-        drawCurveSpeedControl(vtscRect, vtscSpeedStr, false);
+      if (stscEnabled || vtscEnabled) {
+        QRect vtscRect(mtscRect.topLeft() + QPoint(0, mtscRect.height() + 20), QSize(mtscRect.width(), stscControllingCurve || vtscControllingCurve ? 100 : 50));
+        drawCurveSpeedControl(vtscRect, stscControllingCurve ? stscSpeedStr : vtscSpeedStr, false);
       }
-    } else if (vtscEnabled) {
+    } else if (stscEnabled || vtscEnabled) {
       QRect vtscRect(curveSpeedRect.topLeft() + QPoint(0, curveSpeedRect.height() + 10), QSize(curveSpeedRect.width(), 150));
-      drawCurveSpeedControl(vtscRect, vtscSpeedStr, false);
+      drawCurveSpeedControl(vtscRect, stscControllingCurve ? stscSpeedStr : vtscSpeedStr, false);
     }
   }
 
@@ -259,7 +264,7 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
     }
     p.restore();
 
-    if (speedLimitChanged && !(setSpeed - mtscSpeed > 1 || setSpeed - vtscSpeed > 1)) {
+    if (speedLimitChanged && !(setSpeed - mtscSpeed > 1 || setSpeed - stscSpeed > 1 || setSpeed - vtscSpeed > 1)) {
       QRect new_sign_rect(sign_rect.translated(sign_rect.width() + 25, 0));
       new_sign_rect.setWidth(newSpeedLimitStr.size() >= 3 ? 200 : 175);
 
@@ -1122,6 +1127,10 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
     standstillTimer.invalidate();
   }
 
+  stscControllingCurve = scene.stsc_controlling_curve;
+  stscEnabled = scene.stsc_enabled;
+  stscSpeed = stscEnabled ? scene.stsc_speed * speedConversion : setSpeed;
+
   trafficModeActive = scene.traffic_mode_active;
 
   turnSignalLeft = scene.turn_signal_left;
@@ -1140,6 +1149,8 @@ void AnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &painter) {
   if (cemStatus && !mapOpen && !hideBottomIcons) {
     drawCEMStatus(painter);
   }
+
+  drawRadarTracks(painter);
 
   if (roadNameUI && !bigMapOpen) {
     drawRoadName(painter);
@@ -1244,6 +1255,39 @@ void PedalIcons::paintEvent(QPaintEvent *event) {
 
   p.setOpacity(gasOpacity);
   p.drawPixmap(gasX, (height() - img_size) / 2, gas_pedal_img);
+}
+
+void AnnotatedCameraWidget::drawRadarTracks(QPainter &p) {
+  UIState *s = uiState();
+  SubMaster &sm = *(s->sm);
+  UIScene &scene = s->scene;
+
+  const cereal::ModelDataV2::Reader &model = sm["modelV2"].getModelV2();
+
+  if (scene.world_objects_visible) {
+    capnp::List<cereal::LiveTracks>::Reader liveTracks = sm["liveTracks"].getLiveTracks();
+    update_radar_tracks(s, liveTracks, model.getPosition());
+
+    constexpr int diameter = 25;
+
+    QRect viewport = p.viewport();
+
+    int width = viewport.width();
+    int height = viewport.height();
+
+    for (std::size_t i = 0; i < scene.live_radar_tracks.size(); i++) {
+      const RadarTrackData &track = scene.live_radar_tracks[i];
+
+      float x = std::clamp(static_cast<float>(track.calibrated_point.x()), 0.f, float(width - diameter));
+      float y = std::clamp(static_cast<float>(track.calibrated_point.y()), 0.f, float(height - diameter));
+
+      p.save();
+      p.setBrush(redColor());
+      p.setPen(Qt::NoPen);
+      p.drawEllipse(QPointF(x + diameter / 2.f, y + diameter / 2.f), diameter / 2.f, diameter / 2.f);
+      p.restore();
+    }
+  }
 }
 
 void AnnotatedCameraWidget::drawRoadName(QPainter &p) {

@@ -729,12 +729,16 @@ class Controls:
     return CC, lac_log, FPCC
 
   def update_frogpilot_variables(self, CS):
-    self.always_on_lateral_active |= self.frogpilot_toggles.always_on_lateral_main or CS.cruiseState.enabled
-    self.always_on_lateral_active &= self.frogpilot_toggles.always_on_lateral_set and CS.cruiseState.available
+    self.always_on_lateral_active = self.frogpilot_toggles.always_on_lateral_set
+    if self.frogpilot_toggles.always_on_lateral_main:
+      self.always_on_lateral_active &= CS.cruiseState.available
+    elif self.frogpilot_toggles.always_on_lateral_lkas:
+      self.always_on_lateral_active &= self.sm['frogpilotCarState'].alwaysOnLateralEnabled
+    else:
+      self.always_on_lateral_active &= CS.cruiseState.enabled
     self.always_on_lateral_active &= CS.gearShifter not in NON_DRIVING_GEARS
     self.always_on_lateral_active &= self.sm['frogpilotPlan'].lateralCheck
     self.always_on_lateral_active &= self.sm['liveCalibration'].calPerc >= 1
-    self.always_on_lateral_active &= not (self.frogpilot_toggles.always_on_lateral_lkas and self.sm['frogpilotCarState'].alwaysOnLateralDisabled)
     self.always_on_lateral_active &= not (CS.brakePressed and CS.vEgo < self.frogpilot_toggles.always_on_lateral_pause_speed) or CS.standstill
 
     if self.frogpilot_toggles.conditional_experimental_mode or self.frogpilot_toggles.slc_fallback_experimental_mode:

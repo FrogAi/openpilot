@@ -11,6 +11,7 @@ from cereal import car, log
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.params import Params
 from openpilot.selfdrive.car.gm.values import GMFlags
+from openpilot.selfdrive.car.hyundai.values import HyundaiFlags
 from openpilot.selfdrive.controls.lib.desire_helper import LANE_CHANGE_SPEED_MIN
 from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.system.hardware.power_monitoring import VBATT_PAUSE_CHARGING
@@ -284,9 +285,11 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("SLCPriority1", "Navigation", 2),
   ("SLCPriority2", "Map Data", 2),
   ("SLCPriority3", "Dashboard", 2),
+  ("SmartTurnControl", "0", 1),
   ("SNGHack", "1", 2),
   ("SpeedLimitChangedAlert", "1", 0),
   ("SpeedLimitController", "1", 0),
+  ("SpeedLimits", "", 0),
   ("SpeedLimitSources", "0", 3),
   ("StartupMessageBottom", "Human-tested, frog-approved 🐸", 0),
   ("StartupMessageTop", "Hop in and buckle up!", 0),
@@ -309,6 +312,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("SteerRatioStock", "0", 3),
   ("StoppedTimer", "0", 1),
   ("TacoTune", "0", 2),
+  ("TacoTuneHacks", "0", 2),
   ("ToyotaDoors", "1", 0),
   ("TrafficFollow", "0.5", 2),
   ("TrafficJerkAcceleration", "50", 3),
@@ -375,6 +379,7 @@ class FrogPilotVariables:
     msg_bytes = params.get("CarParams" if started else "CarParamsPersistent", block=started)
     if msg_bytes:
       with car.CarParams.from_bytes(msg_bytes) as CP:
+        toggle.allow_taco_hacks = bool(CP.flags & HyundaiFlags.CANFD.value) and not bool(CP.flags & HyundaiFlags.CANFD_HDA2.value)
         always_on_lateral_set = bool(CP.alternativeExperience & ALTERNATIVE_EXPERIENCE.ALWAYS_ON_LATERAL)
         toggle.car_make = CP.carName
         toggle.car_model = CP.carFingerprint
@@ -393,6 +398,7 @@ class FrogPilotVariables:
         vEgoStopping = CP.vEgoStopping
         vEgoStarting = CP.vEgoStarting
     else:
+      toggle.allow_taco_hacks = False
       always_on_lateral_set = False
       toggle.car_make = "MOCK"
       toggle.car_model = "MOCK"
@@ -454,8 +460,8 @@ class FrogPilotVariables:
 
     toggle.always_on_lateral = params.get_bool("AlwaysOnLateral") if tuning_level >= level["AlwaysOnLateral"] else default.get_bool("AlwaysOnLateral")
     toggle.always_on_lateral_set = toggle.always_on_lateral and always_on_lateral_set
-    toggle.always_on_lateral_lkas = toggle.always_on_lateral_set and toggle.car_make != "subaru" and (params.get_bool("AlwaysOnLateralLKAS") if tuning_level >= level["AlwaysOnLateralLKAS"] else default.get_bool("AlwaysOnLateralLKAS"))
-    toggle.always_on_lateral_main = toggle.always_on_lateral_set and (params.get_bool("AlwaysOnLateralMain") if tuning_level >= level["AlwaysOnLateralMain"] else default.get_bool("AlwaysOnLateralMain"))
+    toggle.always_on_lateral_lkas = toggle.always_on_lateral_set and toggle.car_make == "hyundai" and (params.get_bool("AlwaysOnLateralLKAS") if tuning_level >= level["AlwaysOnLateralLKAS"] else default.get_bool("AlwaysOnLateralLKAS"))
+    toggle.always_on_lateral_main = toggle.always_on_lateral_set and not toggle.always_on_lateral_lkas and (params.get_bool("AlwaysOnLateralMain") if tuning_level >= level["AlwaysOnLateralMain"] else default.get_bool("AlwaysOnLateralMain"))
     toggle.always_on_lateral_pause_speed = params.get_int("PauseAOLOnBrake") if toggle.always_on_lateral_set and tuning_level >= level["PauseAOLOnBrake"] else default.get_int("PauseAOLOnBrake")
 
     toggle.automatic_updates = params.get_bool("AutomaticUpdates") if tuning_level >= level["AutomaticUpdates"] else default.get_bool("AutomaticUpdates")
@@ -563,8 +569,8 @@ class FrogPilotVariables:
     toggle.device_shutdown_time = (device_shutdown_setting - 3) * 3600 if device_shutdown_setting >= 4 else device_shutdown_setting * (60 * 15)
     toggle.increase_thermal_limits = device_management and (params.get_bool("IncreaseThermalLimits") if tuning_level >= level["IncreaseThermalLimits"] else default.get_bool("IncreaseThermalLimits"))
     toggle.low_voltage_shutdown = np.clip(params.get_float("LowVoltageShutdown"), VBATT_PAUSE_CHARGING, 12.5) if device_management and tuning_level >= level["LowVoltageShutdown"] else default.get_float("LowVoltageShutdown")
-    toggle.no_logging = (device_management and (params.get_bool("NoLogging") if tuning_level >= level["NoLogging"] else default.get_bool("NoLogging")) or self.development_branch) and not self.vetting_branch
-    toggle.no_uploads = (device_management and (params.get_bool("NoUploads") if tuning_level >= level["NoUploads"] else default.get_bool("NoUploads")) or self.development_branch) and not self.vetting_branch
+    toggle.no_logging = True #(device_management and (params.get_bool("NoLogging") if tuning_level >= level["NoLogging"] else default.get_bool("NoLogging")) or self.development_branch) and not self.vetting_branch
+    toggle.no_uploads = True #(device_management and (params.get_bool("NoUploads") if tuning_level >= level["NoUploads"] else default.get_bool("NoUploads")) or self.development_branch) and not self.vetting_branch
     toggle.no_onroad_uploads = toggle.no_uploads and (params.get_bool("DisableOnroadUploads") if tuning_level >= level["DisableOnroadUploads"] else default.get_bool("DisableOnroadUploads"))
     toggle.offline_mode = device_management and (params.get_bool("OfflineMode") if tuning_level >= level["OfflineMode"] else default.get_bool("OfflineMode"))
 
@@ -579,8 +585,8 @@ class FrogPilotVariables:
     toggle.experimental_mode_via_tap = toggle.experimental_mode_via_press and (params.get_bool("ExperimentalModeViaTap") if tuning_level >= level["ExperimentalModeViaTap"] else default.get_bool("ExperimentalModeViaTap"))
 
     toggle.frogsgomoo_tweak = openpilot_longitudinal and toggle.car_make == "toyota" and (params.get_bool("FrogsGoMoosTweak") if tuning_level >= level["FrogsGoMoosTweak"] else default.get_bool("FrogsGoMoosTweak"))
-    toggle.kiBP = [0., CITY_SPEED_LIMIT] if toggle.frogsgomoo_tweak else kiBP
-    toggle.kiV = [0.25, 0.] if toggle.frogsgomoo_tweak else kiV
+    toggle.kiBP = [0., CRUISING_SPEED] if toggle.frogsgomoo_tweak else kiBP
+    toggle.kiV = [0.1, 0.] if toggle.frogsgomoo_tweak else kiV
     toggle.stoppingDecelRate = 0.01 if toggle.frogsgomoo_tweak else stoppingDecelRate
     toggle.vEgoStopping = 0.5 if toggle.frogsgomoo_tweak else vEgoStopping
     toggle.vEgoStarting = 0.1 if toggle.frogsgomoo_tweak else vEgoStarting
@@ -601,7 +607,7 @@ class FrogPilotVariables:
     toggle.nnff_lite = lateral_tuning and (params.get_bool("NNFFLite") if tuning_level >= level["NNFFLite"] else default.get_bool("NNFFLite"))
     toggle.use_turn_desires = lateral_tuning and (params.get_bool("TurnDesires") if tuning_level >= level["TurnDesires"] else default.get_bool("TurnDesires"))
 
-    toggle.lock_doors_timer = default.get_int("LockDoorsTimer")
+    toggle.lock_doors_timer = params.get_int("LockDoorsTimer") if toggle.car_make == "toyota" and tuning_level >= level["LockDoorsTimer"] else default.get_int("LockDoorsTimer")
 
     toggle.long_pitch = openpilot_longitudinal and toggle.car_make == "gm" and (params.get_bool("LongPitch") if tuning_level >= level["LongPitch"] else default.get_bool("LongPitch"))
 
@@ -740,6 +746,8 @@ class FrogPilotVariables:
 
     toggle.startup_alert_top = params.get("StartupMessageTop", encoding="utf-8") if tuning_level >= level["StartupMessageTop"] else default.get("StartupMessageTop", encoding="utf-8")
     toggle.startup_alert_bottom = params.get("StartupMessageBottom", encoding="utf-8") if tuning_level >= level["StartupMessageBottom"] else default.get("StartupMessageBottom", encoding="utf-8")
+
+    toggle.taco_tune_hacks = toggle.car_make == "hyundai" and toggle.allow_taco_hacks and (params.get_bool("TacoTuneHacks") if tuning_level >= level["TacoTuneHacks"] else default.get_bool("TacoTuneHacks"))
 
     toggle.tethering_config = params.get_int("TetheringEnabled")
 

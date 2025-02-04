@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 import datetime
 import json
+import psutil
+import threading
 import time
+import tracemalloc
 
 import openpilot.system.sentry as sentry
 
 from pathlib import Path
 
 from cereal import messaging
+from openpilot.common.basedir import BASEDIR
 from openpilot.common.params import Params
 from openpilot.common.realtime import Priority, config_realtime_process
 from openpilot.common.time import system_time_valid
@@ -20,6 +24,42 @@ from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_tracking import FrogPi
 from openpilot.selfdrive.frogpilot.frogpilot_functions import backup_toggles
 from openpilot.selfdrive.frogpilot.frogpilot_utilities import flash_panda, is_url_pingable, lock_doors, run_thread_with_lock, send_sentry_reports, update_maps, update_openpilot
 from openpilot.selfdrive.frogpilot.frogpilot_variables import CRASHES_DIR, FrogPilotVariables, get_frogpilot_toggles, params, params_memory
+
+def system_monitor(interval):
+  tracemalloc.start()
+  tracemalloc.take_snapshot()
+
+  header = "-" * 80
+
+  while True:
+    timestamp = datetime.datetime.now()
+    overall_ram = psutil.virtual_memory().percent
+
+    print(f"\n[ {timestamp} ] Overall RAM: {overall_ram:.2f}%")
+
+    if overall_ram > 80:
+      tmux_log = subprocess.run(["tmux", "capture-pane", "-p", "-S", "-100"], capture_output=True, text=True, check=True).stdout
+      sentry.capture_system(tmux_log)
+
+    current_snapshot = tracemalloc.take_snapshot()
+    mem_stats = [
+      stat for stat in current_snapshot.statistics("lineno")
+      if stat.traceback and stat.traceback[0].filename.startswith(BASEDIR)
+    ]
+    top_mem_stats = sorted(mem_stats, key=lambda stat: stat.size, reverse=True)[:10]
+
+    print("\n[ TOP 10 TOTAL RAM USAGE LOCATIONS ]")
+    print(header)
+    print(f"| {'FILE LOCATION':<55} | {'TOTAL USAGE (MB)':>16} |")
+    print(header)
+    for stat in top_mem_stats:
+      top_frame = stat.traceback[0]
+      file_location = f"{top_frame.filename}:{top_frame.lineno}"
+      total_usage_mb = stat.size / (1024 * 1024)
+      print(f"| {file_location:<55} | {total_usage_mb:>16.2f} MB |")
+    print(header)
+
+    time.sleep(interval)
 
 def assets_checks(model_manager, theme_manager):
   if params_memory.get_bool("DownloadAllModels"):
@@ -173,6 +213,9 @@ def frogpilot_thread():
       run_thread_with_lock("update_checks", update_checks, (manually_updated, model_manager, now, theme_manager, frogpilot_toggles, True))
 
 def main():
+  #tracemalloc.start()
+  #threading.Thread(target=system_monitor, args=(5,), daemon=True).start()
+
   frogpilot_thread()
 
 if __name__ == "__main__":

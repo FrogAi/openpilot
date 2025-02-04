@@ -66,6 +66,31 @@ void update_leads(UIState *s, const cereal::RadarState::Reader &radar_state, con
   }
 }
 
+void update_radar_tracks(UIState *s, const capnp::List<cereal::LiveTracks>::Reader &tracks_msg, const cereal::XYZTData::Reader &line) {
+  s->scene.live_radar_tracks.clear();
+
+  SubMaster &sm = *(s->sm);
+  float path_offset_z = sm["liveCalibration"].getLiveCalibration().getHeight()[0];
+
+  std::size_t num_tracks = tracks_msg.size();
+  s->scene.live_radar_tracks.reserve(num_tracks);
+
+  for (std::size_t i = 0; i < num_tracks; i++) {
+    cereal::LiveTracks::Reader track = tracks_msg[i];
+
+    float dRel = track.getDRel();
+    float yRel = track.getYRel();
+    float z = line.getZ()[get_path_length_idx(line, dRel)];
+
+    QPointF calibrated_point;
+    if (calib_frame_to_full_frame(s, dRel, -yRel, z + path_offset_z, &calibrated_point)) {
+      RadarTrackData t;
+      t.calibrated_point = calibrated_point;
+      s->scene.live_radar_tracks.push_back(t);
+    }
+  }
+}
+
 void update_line_data(const UIState *s, const cereal::XYZTData::Reader &line,
                       float y_off, float z_off, QPolygonF *pvd, int max_idx, bool allow_invert=true) {
   const auto line_x = line.getX(), line_y = line.getY(), line_z = line.getZ();
@@ -313,6 +338,8 @@ static void update_state(UIState *s) {
     scene.speed_limit_overridden = frogpilotPlan.getSlcOverridden();
     scene.speed_limit_overridden_speed = frogpilotPlan.getSlcOverriddenSpeed();
     scene.speed_limit_source = frogpilotPlan.getSlcSpeedLimitSource().cStr();
+    scene.stsc_controlling_curve = frogpilotPlan.getStscControllingCurve();
+    scene.stsc_speed = frogpilotPlan.getStscSpeed();
     scene.unconfirmed_speed_limit = frogpilotPlan.getUnconfirmedSlcSpeedLimit();
     scene.upcoming_speed_limit = frogpilotPlan.getUpcomingSLCSpeedLimit();
     scene.vtsc_controlling_curve = frogpilotPlan.getVtscControllingCurve();
@@ -447,6 +474,7 @@ void ui_update_frogpilot_params(UIState *s) {
   scene.stopped_timer = scene.frogpilot_toggles.value("stopped_timer").toBool();
   scene.storage_left_metrics = scene.frogpilot_toggles.value("storage_left_metrics").toBool();
   scene.storage_used_metrics = scene.frogpilot_toggles.value("storage_used_metrics").toBool();
+  scene.stsc_enabled = scene.frogpilot_toggles.value("smart_turn_speed_controller").toBool();
   scene.tethering_config = scene.frogpilot_toggles.value("tethering_config").toDouble();
   scene.unlimited_road_ui_length = scene.frogpilot_toggles.value("unlimited_road_ui_length").toBool();
   scene.use_si_metrics = scene.frogpilot_toggles.value("use_si_metrics").toBool();
@@ -524,7 +552,7 @@ UIState::UIState(QObject *parent) : QObject(parent) {
     "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState",
     "pandaStates", "carParams", "driverMonitoringState", "carState", "liveLocationKalman", "driverStateV2",
     "wideRoadCameraState", "managerState", "navInstruction", "navRoute", "uiPlan", "clocks",
-    "carControl", "liveTorqueParameters", "frogpilotCarControl", "frogpilotCarState", "frogpilotDeviceState",
+    "carControl", "liveTorqueParameters", "liveTracks", "frogpilotCarControl", "frogpilotCarState", "frogpilotDeviceState",
     "frogpilotNavigation", "frogpilotPlan",
   });
 

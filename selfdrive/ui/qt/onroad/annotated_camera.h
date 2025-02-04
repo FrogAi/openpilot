@@ -74,6 +74,7 @@ private:
 
   // FrogPilot widgets
   void drawCEMStatus(QPainter &p);
+  void drawRadarTracks(QPainter &p);
   void drawRoadName(QPainter &p);
   void drawTurnSignals(QPainter &p);
   void initializeFrogPilotWidgets();
@@ -137,6 +138,8 @@ private:
   bool slcOverridden;
   bool speedLimitChanged;
   bool speedLimitSources;
+  bool stscControllingCurve;
+  bool stscEnabled;
   bool trafficModeActive;
   bool turnSignalAnimation;
   bool turnSignalLeft;
@@ -156,6 +159,7 @@ private:
   float slcSpeedLimitOffset;
   float speedConversion;
   float speedConversionMetrics;
+  float stscSpeed;
   float unconfirmedSpeedLimit;
   float upcomingSpeedLimit;
   float vtscSpeed;

@@ -6,6 +6,8 @@ import threading
 
 import requests
 
+import openpilot.system.sentry as sentry
+
 import cereal.messaging as messaging
 from cereal import log
 from openpilot.common.api import Api
@@ -18,7 +20,8 @@ from openpilot.selfdrive.navd.helpers import (Coordinate, coordinate_from_param,
                                     parse_banner_instructions)
 from openpilot.common.swaglog import cloudlog
 
-from openpilot.selfdrive.frogpilot.frogpilot_variables import get_frogpilot_toggles, has_prime
+from openpilot.selfdrive.frogpilot.frogpilot_utilities import calculate_distance_to_point
+from openpilot.selfdrive.frogpilot.frogpilot_variables import EARTH_RADIUS, get_frogpilot_toggles, has_prime
 
 REROUTE_DISTANCE = 25
 MANEUVER_TRANSITION_THRESHOLD = 10
@@ -70,7 +73,9 @@ class RouteEngine:
     self.approaching_intersection = False
     self.approaching_turn = False
 
+    self.current_speed_limit = 0
     self.nav_speed_limit = 0
+    self.segment_distance_remaining = 0
 
     self.stop_coord = []
     self.stop_signal = []
@@ -277,7 +282,7 @@ class RouteEngine:
       msg.valid = False
       self.pm.send('navInstruction', msg)
 
-      fp_msg.frogpilotNavigation.navigationSpeedLimit = 0
+      fp_msg.frogpilotNavigation.navigationSpeedLimit = self.get_speed_limit_from_mapbox()
       self.pm.send('frogpilotNavigation', fp_msg)
       return
 
@@ -427,6 +432,65 @@ class RouteEngine:
     self.route_geometry = None
     self.step_idx = None
     self.nav_destination = None
+
+  def get_speed_limit_from_mapbox(self):
+    try:
+      if not self.localizer_valid or self.last_position is None:
+        self.segment_distance_remaining = 0
+        return 0
+
+      if self.sm['carState'].vEgo == 0:
+        return self.current_speed_limit
+
+      if self.segment_distance_remaining > 0:
+        self.segment_distance_remaining -= self.sm['carState'].vEgo
+        return self.current_speed_limit
+
+      url = f"{self.mapbox_host}/directions/v5/mapbox/driving/{self.last_position.longitude},{self.last_position.latitude};{self.last_position.longitude},{self.last_position.latitude}.json"
+      params = {
+        'access_token': self.mapbox_token,
+        'annotations': 'maxspeed,distance',
+        'geometries': 'geojson',
+        'overview': 'full'
+      }
+
+      response = requests.get(url, params=params, timeout=10)
+      response.raise_for_status()
+
+      data = response.json()
+      if 'routes' in data and len(data['routes']) > 0:
+        route = data['routes'][0]
+        if 'legs' in route and len(route['legs']) > 0:
+          leg = route['legs'][0]
+          annotations = leg.get('annotation', {})
+          if 'maxspeed' in annotations:
+            speed_data = annotations['maxspeed']
+            if len(speed_data) > 0:
+              speed_limit_kmh = speed_data[0].get('speed', None)
+              if speed_limit_kmh:
+                if 'distance' in annotations and len(annotations['distance']) > 0:
+                  self.segment_distance_remaining = annotations['distance'][0]
+                else:
+                  self.segment_distance_remaining = REROUTE_DISTANCE
+                speed_limit = maxspeed_to_ms({"speed": speed_limit_kmh, "unit": "km/h"})
+                self.current_speed_limit = speed_limit
+                return speed_limit
+
+      return self.current_speed_limit
+
+    except requests.exceptions.Timeout as timeout_error:
+      return self.current_speed_limit
+
+    except requests.exceptions.ConnectionError as conn_error:
+      return self.current_speed_limit
+
+    except requests.exceptions.HTTPError as http_error:
+      sentry.capture_exception(http_error)
+      return self.current_speed_limit
+
+    except Exception as error:
+      sentry.capture_exception(error)
+      return self.current_speed_limit
 
   def reset_recompute_limits(self):
     self.recompute_backoff = 0

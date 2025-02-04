@@ -38,6 +38,8 @@ def backup_directory(backup, destination, success_message, fail_message, minimum
     with tarfile.open(tar_file, "w") as tar:
       tar.add(in_progress_destination, arcname=destination.name)
 
+    shutil.rmtree(in_progress_destination, ignore_errors=True)
+
     compressed_file = destination.parent / (destination.name + "_in_progress.tar.zst")
     with open(compressed_file, "wb") as f:
       cctx = zstd.ZstdCompressor(level=2)
@@ -49,17 +51,15 @@ def backup_directory(backup, destination, success_message, fail_message, minimum
               break
             compressor.write(chunk)
 
+    tar_file.unlink(missing_ok=True)
+
     final_compressed_file = destination.parent / (destination.name + ".tar.zst")
     compressed_file.rename(final_compressed_file)
     print(f"Backup saved: {final_compressed_file}")
 
-    shutil.rmtree(in_progress_destination, ignore_errors=True)
-    tar_file.unlink(missing_ok=True)
-
-    if final_compressed_file.exists():
-      compressed_backup_size = final_compressed_file.stat().st_size
-      if minimum_backup_size == 0 or compressed_backup_size < minimum_backup_size:
-        params.put_int("MinimumBackupSize", compressed_backup_size)
+    compressed_backup_size = final_compressed_file.stat().st_size
+    if minimum_backup_size == 0 or compressed_backup_size < minimum_backup_size:
+      params.put_int("MinimumBackupSize", compressed_backup_size)
   else:
     if destination.exists():
       print("Backup already exists. Aborting...")
@@ -148,7 +148,6 @@ def frogpilot_boot_functions(build_metadata, params_cache):
   threading.Thread(target=backup_thread, daemon=True).start()
 
 def setup_frogpilot(build_metadata):
-  run_cmd(["sudo", "mount", "-o", "remount,rw", "/persist"], "Successfully remounted /persist as read-write", "Failed to remount /persist")
   run_cmd(["sudo", "chmod", "0777", "/cache"], "Successfully updated /cache permissions", "Failed to update /cache permissions")
 
   CRASHES_DIR.mkdir(parents=True, exist_ok=True)

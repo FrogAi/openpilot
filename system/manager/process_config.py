@@ -87,7 +87,7 @@ procs = [
   PythonProcess("dmonitoringd", "selfdrive.monitoring.dmonitoringd", driverview, enabled=(not PC or WEBCAM)),
   PythonProcess("qcomgpsd", "system.qcomgpsd.qcomgpsd", qcomgps, enabled=TICI),
   #PythonProcess("ugpsd", "system.ugpsd", only_onroad, enabled=TICI),
-  PythonProcess("navd", "selfdrive.navd.navd", run_classic_modeld),
+  PythonProcess("navd", "selfdrive.navd.navd", only_onroad),
   PythonProcess("pandad", "selfdrive.pandad.pandad", always_run),
   PythonProcess("paramsd", "selfdrive.locationd.paramsd", only_onroad),
   NativeProcess("ubloxd", "system/ubloxd", ["./ubloxd"], ublox, enabled=TICI),
@@ -110,6 +110,7 @@ procs = [
   PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", always_run),
   PythonProcess("frogpilot_process", "selfdrive.frogpilot.frogpilot_process", always_run),
   PythonProcess("mapd", "selfdrive.frogpilot.navigation.mapd", always_run),
+  PythonProcess("speed_limit_filler", "selfdrive.frogpilot.system.speed_limit_filler", always_run),
   NativeProcess("tinygrad_modeld", "selfdrive/tinygrad_modeld", ["./tinygrad_modeld"], run_tinygrad_modeld),
 ]
 
