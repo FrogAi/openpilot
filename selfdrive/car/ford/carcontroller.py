@@ -77,6 +77,14 @@ class CarController(CarControllerBase):
         apply_curvature = apply_ford_curvature_limits(actuators.curvature, self.apply_curvature_last, current_curvature, CS.out.vEgoRaw)
       else:
         apply_curvature = 0.
+      
+      steeringPressed = CS.out.steeringPressed
+      steeringAngleDeg = CS.out.steeringAngleDeg
+      if steeringPressed and abs(steeringAngleDeg) > 60:
+        apply_curvature = 0
+        ramp_type = 3
+      else:
+        ramp_type = 0
 
       self.apply_curvature_last = apply_curvature
 
@@ -84,10 +92,10 @@ class CarController(CarControllerBase):
         # TODO: extended mode
         mode = 1 if CC.latActive else 0
         counter = (self.frame // CarControllerParams.STEER_STEP) % 0x10
-        can_sends.append(fordcan.create_lat_ctl2_msg(self.packer, self.CAN, mode, 0., 0., -apply_curvature, 0., counter))
+        can_sends.append(fordcan.create_lat_ctl2_msg(self.packer, self.CAN, mode, ramp_type, 0., 0., -apply_curvature, 0., counter))
       else:
-        can_sends.append(fordcan.create_lat_ctl_msg(self.packer, self.CAN, CC.latActive, 0., 0., -apply_curvature, 0.))
-
+        can_sends.append(fordcan.create_lat_ctl_msg(self.packer, self.CAN, ramp_type, CC.latActive, 0., 0., -apply_curvature, 0.))
+        
     # send lka msg at 33Hz
     if (self.frame % CarControllerParams.LKA_STEP) == 0:
       can_sends.append(fordcan.create_lka_msg(self.packer, self.CAN))
