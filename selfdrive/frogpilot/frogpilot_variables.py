@@ -90,6 +90,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("BlindSpotMetrics", "1", 3),
   ("BlindSpotPath", "1", 0),
   ("BorderMetrics", "0", 3),
+  ("BrakeSignal", "0", 0),
   ("CameraView", "3", 2),
   ("CarMake", "", 0),
   ("CarModel", "", 0),
@@ -165,6 +166,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("HolidayThemes", "1", 0),
   ("HumanAcceleration", "1", 2),
   ("HumanFollowing", "1", 2),
+  ("HKGtuning", "0", 2),
   ("IncreasedStoppedDistance", "0", 2),
   ("IncreaseThermalLimits", "0", 3),
   ("JerkInfo", "0", 3),
@@ -572,6 +574,8 @@ class FrogPilotVariables:
     vEgoStopping = 0.15 if toggle.experimental_gm_tune else vEgoStopping
     vEgoStarting = 0.15 if toggle.experimental_gm_tune else vEgoStarting
 
+    toggle.hkg_tuning = openpilot_longitudinal and toggle.car_make == "hyundai" and params.get_bool("HKGtuning") if tuning_level >= level["HKGtuning"] else default.get_bool("HKGtuning")
+
     toggle.experimental_mode_via_press = openpilot_longitudinal and (params.get_bool("ExperimentalModeActivation") if tuning_level >= level["ExperimentalModeActivation"] else default.get_bool("ExperimentalModeActivation"))
     toggle.experimental_mode_via_distance = toggle.experimental_mode_via_press and (params.get_bool("ExperimentalModeViaDistance") if tuning_level >= level["ExperimentalModeViaDistance"] else default.get_bool("ExperimentalModeViaDistance"))
     toggle.experimental_mode_via_lkas = not toggle.always_on_lateral_lkas and toggle.experimental_mode_via_press and toggle.car_make != "subaru" and (params.get_bool("ExperimentalModeViaLKAS") if tuning_level >= level["ExperimentalModeViaLKAS"] else default.get_bool("ExperimentalModeViaLKAS"))
@@ -698,6 +702,7 @@ class FrogPilotVariables:
     toggle.stopped_timer = quality_of_life_visuals and (params.get_bool("StoppedTimer") if tuning_level >= level["StoppedTimer"] else default.get_bool("StoppedTimer"))
 
     toggle.rainbow_path = params.get_bool("RainbowPath") if tuning_level >= level["RainbowPath"] else default.get_bool("RainbowPath")
+    toggle.brake_signal= params.get_bool("BrakeSignal") if tuning_level >= level["BrakeSignal"] else default.get_bool("BrakeSignal")
 
     toggle.random_events = params.get_bool("RandomEvents") if tuning_level >= level["RandomEvents"] else default.get_bool("RandomEvents")
 

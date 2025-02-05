@@ -115,6 +115,8 @@ FrogPilotThemesPanel::FrogPilotThemesPanel(FrogPilotSettingsWindow *parent) : Fr
 
     {"RainbowPath", tr("Rainbow Path"), tr("Swap out the path in the onroad UI for a Mario Kart inspired 'Rainbow Path'."), "../frogpilot/assets/toggle_icons/icon_rainbow.png"},
 
+    {"BrakeSignal", tr("Brake Indicator"), tr("Turns current speed value to red when the brake pedal is pressed."), "../frogpilot/assets/toggle_icons/icon_brake.png"},
+
     {"RandomEvents", tr("Random Events"), tr("Enables random cosmetic events that happen during certain driving conditions. These events are purely for fun and don't affect driving controls!"), "../frogpilot/assets/toggle_icons/icon_random.png"},
 
     {"StartupAlert", tr("Startup Alert"), tr("Controls the text of the 'Startup' alert message that appears when you start the drive."), "../frogpilot/assets/toggle_icons/icon_message.png"}

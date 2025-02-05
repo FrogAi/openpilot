@@ -10,6 +10,7 @@ from openpilot.selfdrive.car.hyundai.values import HyundaiFlags, Buttons, CarCon
 from openpilot.selfdrive.car.interfaces import CarControllerBase
 
 from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_acceleration import get_max_allowed_accel
+from openpilot.selfdrive.car.hyundai.longitudinal_tuning import HKGLongitudinalController, LongitudinalMode
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 LongCtrlState = car.CarControl.Actuators.LongControlState
@@ -48,6 +49,7 @@ def process_hud_alert(enabled, fingerprint, hud_control):
 class CarController(CarControllerBase):
   def __init__(self, dbc_name, CP, VM):
     self.CP = CP
+    HKGLongitudinalController.__init__(self, CP)
     self.CAN = CanBus(CP)
     self.params = CarControllerParams(CP)
     self.packer = CANPacker(dbc_name)
@@ -62,6 +64,7 @@ class CarController(CarControllerBase):
   def update(self, CC, CS, now_nanos, frogpilot_toggles):
     actuators = CC.actuators
     hud_control = CC.hudControl
+    accel = actuators.accel
 
     # steering torque
     new_steer = int(round(actuators.steer * self.params.STEER_MAX))
@@ -80,11 +83,20 @@ class CarController(CarControllerBase):
 
     self.apply_steer_last = apply_steer
 
-    # accel + longitudinal
-    if frogpilot_toggles.sport_plus:
+    # Accel + Longitudinal control
+
+    if hasattr(self, 'tuning') and self.tuning is not None:
+      accel = self.tuning.update(accel, CS, clip, LongitudinalMode.ACC)
+      accel = clip(accel, CarControllerParams.ACCEL_MIN, min(frogpilot_toggles.max_desired_acceleration, CarControllerParams.ACCEL_MAX))
+    elif self.tuning is not None and frogpilot_toggles.sport_plus:
+      accel = self.tuning.update(accel, CS, clip, LongitudinalMode.ACC)
+      accel = clip(actuators.accel, CarControllerParams.ACCEL_MIN, min(frogpilot_toggles.max_desired_acceleration, get_max_allowed_accel(CS.out.vEgo)))
+    elif frogpilot_toggles.sport_plus:
       accel = clip(actuators.accel, CarControllerParams.ACCEL_MIN, min(frogpilot_toggles.max_desired_acceleration, get_max_allowed_accel(CS.out.vEgo)))
     else:
       accel = clip(actuators.accel, CarControllerParams.ACCEL_MIN, min(frogpilot_toggles.max_desired_acceleration, CarControllerParams.ACCEL_MAX))
+
+
     stopping = actuators.longControlState == LongCtrlState.stopping
     set_speed_in_units = hud_control.setSpeed * (CV.MS_TO_KPH if CS.is_metric else CV.MS_TO_MPH)
 
@@ -149,8 +161,8 @@ class CarController(CarControllerBase):
         can_sends.extend(self.create_button_messages(CC, CS, use_clu11=True))
 
       if self.frame % 2 == 0 and self.CP.openpilotLongitudinalControl:
-        # TODO: unclear if this is needed
-        jerk = 3.0 if actuators.longControlState == LongCtrlState.pid else 1.0
+        normal_jerk = 3.0 if actuators.longControlState == LongCtrlState.pid else 1.0
+        jerk = self.tuning.compute_jerk(actuators.accel, CS.out.vEgo, normal_jerk) if hasattr(self, 'tuning') and self.tuning is not None else normal_jerk
         use_fca = self.CP.flags & HyundaiFlags.USE_FCA.value
         can_sends.extend(hyundaican.create_acc_commands(self.packer, CC.enabled, accel, jerk, int(self.frame / 2),
                                                         hud_control, set_speed_in_units, stopping,

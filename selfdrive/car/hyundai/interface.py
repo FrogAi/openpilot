@@ -1,5 +1,6 @@
 from cereal import car, custom
 from panda import Panda
+from openpilot.common.params import Params
 from openpilot.selfdrive.car.hyundai.hyundaicanfd import CanBus
 from openpilot.selfdrive.car.hyundai.values import HyundaiFlags, CAR, DBC, CANFD_CAR, CAMERA_SCC_CAR, CANFD_RADAR_SCC_CAR, \
                                          CANFD_UNSUPPORTED_LONGITUDINAL_CAR, EV_CAR, HYBRID_CAR, LEGACY_SAFETY_MODE_CAR, \
@@ -10,6 +11,7 @@ from openpilot.selfdrive.car.interfaces import CarInterfaceBase
 from openpilot.selfdrive.car.disable_ecu import disable_ecu
 
 from openpilot.selfdrive.frogpilot.frogpilot_variables import params
+from openpilot.selfdrive.car.hyundai.longitudinal_tuning import HKGLongitudinalController
 
 Ecu = car.CarParams.Ecu
 ButtonType = car.CarState.ButtonEvent.Type
@@ -110,6 +112,10 @@ class CarInterface(CarInterfaceBase):
     ret.vEgoStarting = 0.1
     ret.startAccel = 1.0
     ret.longitudinalActuatorDelay = 0.5
+
+    # Add HKG longitudinal support
+    if Params().get_bool("HKGtuning"):
+      HKGLongitudinalController(ret).apply_tune(ret)
 
     # *** feature detection ***
     if candidate in CANFD_CAR:

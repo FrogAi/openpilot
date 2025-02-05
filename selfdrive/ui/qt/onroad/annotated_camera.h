@@ -57,6 +57,9 @@ private:
   QString speedUnit;
   float setSpeed;
   float speedLimit;
+  bool brakeLightOn;
+  bool standstill;
+  bool brakeSignal = false;
   bool is_cruise_set = false;
   bool is_metric = false;
   bool dmActive = false;

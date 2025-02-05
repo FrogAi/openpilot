@@ -54,6 +54,9 @@ void AnnotatedCameraWidget::updateState(int alert_height, const UIState &s) {
   const auto cs = sm["controlsState"].getControlsState();
   const auto car_state = sm["carState"].getCarState();
   const auto nav_instruction = sm["navInstruction"].getNavInstruction();
+  brakeSignal = s.scene.brake_signal;
+  standstill = s.scene.standstill;
+  brakeLightOn = s.scene.brake_lights_on;
 
   // Handle older routes where vCruiseCluster is not set
   float v_cruise = cs.getVCruiseCluster() == 0.0 ? cs.getVCruise() : cs.getVCruiseCluster();
@@ -403,8 +406,16 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
       p.setFont(InterFont(66));
       drawText(p, rect().center().x(), 290, QString("%1 seconds").arg(seconds));
     } else {
+      //check if brake signal is active
+      bool isBraking = (brakeSignal && (brakeLightOn || standstill));
       p.setFont(InterFont(176, QFont::Bold));
-      drawText(p, rect().center().x(), 210, speedStr);
+      if (isBraking) {
+        p.setPen(QColor(255, 0, 0, 255)); // Red
+      } else {
+        p.setPen(QColor(255, 255, 255, 255)); // White
+      };
+
+      drawText(p, rect().center().x(), 210, speedStr, 255, true);
       p.setFont(InterFont(66));
       drawText(p, rect().center().x(), 290, speedUnit, 200);
     }

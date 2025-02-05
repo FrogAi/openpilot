@@ -365,6 +365,7 @@ void ui_update_frogpilot_params(UIState *s) {
   scene.always_on_lateral = scene.frogpilot_toggles.value("always_on_lateral").toBool();
   scene.big_map = scene.frogpilot_toggles.value("big_map").toBool();
   scene.blind_spot_path = scene.frogpilot_toggles.value("blind_spot_path").toBool();
+  scene.brake_signal = scene.frogpilot_toggles.value("brake_signal").toBool();
   scene.camera_view = scene.frogpilot_toggles.value("camera_view").toDouble();
   scene.cem_status = scene.frogpilot_toggles.value("cem_status").toBool();
   scene.compass = scene.frogpilot_toggles.value("compass").toBool();
