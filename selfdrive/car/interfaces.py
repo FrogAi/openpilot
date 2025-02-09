@@ -179,18 +179,29 @@ def get_nn_model_path(car, eps_firmware) -> tuple[str | None, float]:
           model_path = os.path.join(TORQUE_NN_MODEL_PATH, f)
     return model_path, max_similarity
 
-  if len(eps_firmware) > 3:
-    eps_firmware = eps_firmware.replace("\\", "")
-    check_model = f"{car} {eps_firmware}"
-  else:
-    check_model = car
-  model_path, max_similarity = check_nn_path(check_model)
-  if car not in model_path or 0.0 <= max_similarity < 0.9:
-    check_model = car
+  def check_candidate(car, eps_firmware):
+    if len(eps_firmware) > 3:
+      eps_firmware = eps_firmware.replace("\\", "")
+      check_model = f"{car} {eps_firmware}"
+    else:
+      check_model = car
     model_path, max_similarity = check_nn_path(check_model)
     if car not in model_path or 0.0 <= max_similarity < 0.9:
-      model_path = None
-  return model_path
+      check_model = car
+      model_path, max_similarity = check_nn_path(check_model)
+      if car not in model_path or 0.0 <= max_similarity < 0.9:
+        model_path = None
+    return model_path, max_similarity
+
+  with open(TORQUE_SUBSTITUTE_PATH, 'rb') as f:
+    sub = tomllib.load(f)
+  sub_candidate = sub.get(car, car)
+
+  for candidate in [car, sub_candidate]:
+    model, similarity_score = check_candidate(candidate, eps_firmware)
+    if model is not None:
+      return model
+  return None
 
 def get_nn_model(car, eps_firmware) -> tuple[FluxModel | None, float]:
   model = get_nn_model_path(car, eps_firmware)
