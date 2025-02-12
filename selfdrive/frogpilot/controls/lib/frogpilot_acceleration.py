@@ -30,7 +30,7 @@ def get_max_accel_ramp_off(max_accel, v_cruise, v_ego):
   return np.interp(v_cruise - v_ego, [0., 1., 5., 10.], [0., 0.5, 1.0, max_accel])
 
 def get_max_allowed_accel(v_ego):
-  return np.interp(v_ego, [0., 5., 20.], [4.0, 4.0, 2.0])  # ISO 15622:2018
+  return float(np.interp(v_ego, [0., 5., 20.], [4.0, 4.0, 2.0]))  # ISO 15622:2018
 
 class FrogPilotAcceleration:
   def __init__(self, FrogPilotPlanner):

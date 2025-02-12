@@ -128,13 +128,13 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
   bg.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0));
   p.fillRect(0, 0, width(), UI_HEADER_HEIGHT, bg);
 
-  QString mtscSpeedStr = (mtscSpeed > 1) ? QString::number(std::nearbyint(mtscSpeed)) + speedUnit : "–";
+  QString mtscSpeedStr = (mtscSpeed > 1) ? QString::number(std::nearbyint(fmin(speed, mtscSpeed))) + speedUnit : "–";
   QString newSpeedLimitStr = (unconfirmedSpeedLimit > 1) ? QString::number(std::nearbyint(unconfirmedSpeedLimit)) : "–";
   QString speedLimitStr = (speedLimit > 1) ? QString::number(std::nearbyint(speedLimit)) : "–";
   QString speedLimitOffsetStr = (slcSpeedLimitOffset == 0) ? "–" : QString::number(slcSpeedLimitOffset, 'f', 0).prepend((slcSpeedLimitOffset > 0) ? "+" : "");
   QString speedStr = QString::number(std::nearbyint(speed));
   QString setSpeedStr = is_cruise_set ? QString::number(std::nearbyint(setSpeed)) : "–";
-  QString vtscSpeedStr = (vtscSpeed > 1) ? QString::number(std::nearbyint(vtscSpeed)) + speedUnit : "–";
+  QString vtscSpeedStr = (vtscSpeed > 1) ? QString::number(std::nearbyint(fmin(speed, vtscSpeed))) + speedUnit : "–";
 
   // Draw outer box + border to contain set speed and speed limit
   const int sign_margin = 12;
@@ -587,7 +587,7 @@ void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s, f
   }
 
   // Paint adjacent lane paths
-  if ((scene.adjacent_path || scene.adjacent_path_metrics) && v_ego >= scene.minimum_lane_change_speed) {
+  if ((scene.adjacent_path || scene.adjacent_path_metrics) && scene.lane_width_left != 0 && scene.lane_width_right != 0) {
     QLinearGradient ap(0, height(), 0, 0);
 
     std::function<void(float)> setAdjacentPathColors = [&](float hue) {
@@ -1190,6 +1190,8 @@ void AnnotatedCameraWidget::drawCEMStatus(QPainter &p) {
     iconToDraw = curveIcon.scaled(iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
   } else if (conditionalStatus == 13 || conditionalStatus == 14) {
     iconToDraw = leadIcon.scaled(iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  } else if (experimentalMode) {
+    iconToDraw = experimentalModeIcon.scaled(iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
   } else {
     iconToDraw = chillModeIcon.scaled(iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
   }

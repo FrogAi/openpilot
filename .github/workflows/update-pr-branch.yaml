@@ -10,50 +10,78 @@ env:
   TARGET_BRANCH: MAKE-PRS-HERE
 
 jobs:
-  squash-and-cherry-pick:
+  update_branch:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout FrogPilot-Staging Branch
         uses: actions/checkout@v3
         with:
           ref: ${{ env.SOURCE_BRANCH }}
           fetch-depth: 0
 
-      - name: Set Git user name and email
+      - name: Identify Parent Commit from 'Compile FrogPilot'
+        id: find_parent
         run: |
+          set -e
+          COMMIT=$(git rev-list HEAD -n 1 --grep="Compile FrogPilot")
+          if [ -z "$COMMIT" ]; then
+            echo "Commit with message 'Compile FrogPilot' not found." >&2
+            exit 1
+          fi
+
+          PARENT=$(git rev-list --parents -n 1 "$COMMIT" | awk '{print $2}')
+          if [ -z "$PARENT" ]; then
+            echo "Parent commit not found." >&2
+            exit 1
+          fi
+
+          echo "Parent commit: $PARENT"
+          echo "parent_commit=$PARENT" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout MAKE-PRS-HERE Branch
+        run: |
+          set -e
+          git fetch origin ${{ env.TARGET_BRANCH }}
+          git checkout ${{ env.TARGET_BRANCH }}
+
+      - name: Clean MAKE-PRS-HERE and Update Files
+        run: |
+          set -e
+          git rm -r --ignore-unmatch .
+          git clean -fdx
+
+          PARENT_COMMIT=${{ steps.find_parent.outputs.parent_commit }}
+          git checkout $PARENT_COMMIT -- .
+          git add --all
+
+      - name: Set Git Username and Email
+        run: |
+          set -e
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Get the second to last commit hash and create a temporary branch
+      - name: Commit and Push Changes
         run: |
-          commit_hash=$(git rev-parse HEAD~1)
-          git checkout -b temp-branch $commit_hash
+          set -e
+          TZ_VALUE="America/Phoenix"
+          current_day=$(TZ="$TZ_VALUE" date +"%-d")
+          month=$(TZ="$TZ_VALUE" date +"%B")
+          year=$(TZ="$TZ_VALUE" date +"%Y")
 
-      - name: Squash all commits into one with today's date in Phoenix time zone
-        run: |
-          day=$(TZ='America/Phoenix' date '+%-d')
-          suffix="th"
-          case $day in
-            1|21|31) suffix="st" ;;
-            2|22) suffix="nd" ;;
-            3|23) suffix="rd" ;;
-          esac
-          commit_message="$(TZ='America/Phoenix' date '+%B ')$day$suffix, $(TZ='America/Phoenix' date '+%Y') Update"
-          git reset --soft $(git rev-list --max-parents=0 HEAD)
+          if [ "$current_day" -eq 11 ] || [ "$current_day" -eq 12 ] || [ "$current_day" -eq 13 ]; then
+            suffix="th"
+          else
+            case $(($current_day % 10)) in
+              1) suffix="st" ;;
+              2) suffix="nd" ;;
+              3) suffix="rd" ;;
+              *) suffix="th" ;;
+            esac
+          fi
+
+          commit_message="${month} ${current_day}${suffix}, ${year} Update"
+          echo "Commit message: $commit_message"
+
           git commit -m "$commit_message"
-
-      - name: Cherry-pick the squashed commit to target branch and push
-        run: |
-          git fetch origin
-          git checkout ${{ env.TARGET_BRANCH }}
-          git cherry-pick temp-branch -X theirs || {
-            if git status | grep -q "nothing to commit, working tree clean"; then
-              echo "Empty commit detected, skipping cherry-pick."
-              git cherry-pick --skip
-            else
-              echo "Continuing with cherry-pick."
-              git cherry-pick --continue
-            fi
-          }
           git push origin ${{ env.TARGET_BRANCH }}

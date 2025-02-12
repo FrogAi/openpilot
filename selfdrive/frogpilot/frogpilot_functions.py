@@ -10,6 +10,7 @@ import subprocess
 import tarfile
 import threading
 import time
+import zstandard as zstd
 
 from openpilot.common.basedir import BASEDIR
 from openpilot.common.params import Params
@@ -19,38 +20,49 @@ from openpilot.system.hardware import HARDWARE
 
 from openpilot.selfdrive.frogpilot.assets.model_manager import ModelManager
 from openpilot.selfdrive.frogpilot.assets.theme_manager import HOLIDAY_THEME_PATH, ThemeManager
-from openpilot.selfdrive.frogpilot.frogpilot_utilities import run_cmd
-from openpilot.selfdrive.frogpilot.frogpilot_variables import CRASHES_DIR, MODELS_PATH, THEME_SAVE_PATH, FrogPilotVariables, get_frogpilot_toggles, params
+from openpilot.selfdrive.frogpilot.frogpilot_utilities import delete_file, run_cmd
+from openpilot.selfdrive.frogpilot.frogpilot_variables import CRASHES_DIR, EXCLUDED_KEYS, MODELS_PATH, THEME_SAVE_PATH, FrogPilotVariables, frogpilot_default_params, get_frogpilot_toggles, params
 
 def backup_directory(backup, destination, success_message, fail_message, minimum_backup_size=0, compressed=False):
   in_progress_destination = destination.parent / (destination.name + "_in_progress")
 
   if compressed:
-    destination_compressed = destination.with_suffix(".tar.gz")
+    destination_compressed = destination.parent / (destination.name + ".tar.zst")
     if destination_compressed.exists():
-      print("Backup already exists. Aborting")
+      print("Backup already exists. Aborting...")
       return
 
     run_cmd(["sudo", "rsync", "-avq", f"{backup}/.", in_progress_destination], "", fail_message)
 
-    in_progress_compressed = destination_compressed.with_suffix(".tar.gz_in_progress")
-    with tarfile.open(in_progress_compressed, "w:gz") as tar:
+    tar_file = destination.parent / (destination.name + "_in_progress.tar")
+    with tarfile.open(tar_file, "w") as tar:
       tar.add(in_progress_destination, arcname=destination.name)
 
-    run_cmd(["sudo", "rm", "-rf", in_progress_destination], success_message, fail_message)
-    in_progress_compressed.rename(destination_compressed)
+    compressed_file = destination.parent / (destination.name + "_in_progress.tar.zst")
+    with open(compressed_file, "wb") as f:
+      cctx = zstd.ZstdCompressor(level=2)
+      with open(tar_file, "rb") as tar_f:
+        with cctx.stream_writer(f) as compressor:
+          while True:
+            chunk = tar_f.read(65536)
+            if not chunk:
+              break
+            compressor.write(chunk)
 
-    compressed_backup_size = destination_compressed.stat().st_size
-    if minimum_backup_size == 0 or compressed_backup_size < minimum_backup_size:
-      params.put_int("MinimumBackupSize", compressed_backup_size)
+    final_compressed_file = destination.parent / (destination.name + ".tar.zst")
+    compressed_file.rename(final_compressed_file)
+    print(f"Backup saved: {final_compressed_file}")
+
+    shutil.rmtree(in_progress_destination, ignore_errors=True)
+    tar_file.unlink(missing_ok=True)
+
+    if final_compressed_file.exists():
+      compressed_backup_size = final_compressed_file.stat().st_size
+      if minimum_backup_size == 0 or compressed_backup_size < minimum_backup_size:
+        params.put_int("MinimumBackupSize", compressed_backup_size)
   else:
     if destination.exists():
-      print("Backup already exists. Aborting")
-      return
-
-    latest_backup = sorted(destination.parent.glob("*_auto"), key=lambda x: x.stat().st_mtime, reverse=True)
-    if latest_backup and filecmp.cmp(backup, latest_backup[0], shallow=False):
-      print("Backup is identical to the latest backup. Aborting.")
+      print("Backup already exists. Aborting...")
       return
 
     run_cmd(["sudo", "rsync", "-avq", f"{backup}/.", in_progress_destination], success_message, fail_message)
@@ -84,17 +96,29 @@ def backup_frogpilot(build_metadata):
     backup_directory(directory, destination_directory, f"Successfully backed up FrogPilot to {destination_directory}", f"Failed to backup FrogPilot to {destination_directory}", minimum_backup_size, compressed=True)
 
 def backup_toggles(params_cache):
-  for key in params.all_keys():
-    if params.get_key_type(key) & ParamKeyType.PERSISTENT:
-      value = params.get(key)
-      if value is not None:
-        params_cache.put(key, value)
+  params_backup = Params("/data/params_backup")
+
+  changes_found = False
+  for key, _, _ in frogpilot_default_params:
+    if key in EXCLUDED_KEYS:
+      continue
+    new_value = params.get(key) or "0"
+    current_value = params_backup.get(key) or "0"
+
+    if new_value != current_value:
+      params_backup.put(key, new_value)
+      params_cache.put(key, new_value)
+      changes_found = True
+
+  if not changes_found:
+    print("Toggles are identical to the previous backup. Aborting...")
+    return
 
   backup_path = Path("/data/toggle_backups")
   maximum_backups = 10
   cleanup_backups(backup_path, maximum_backups, "Successfully cleaned up old toggle backups", "Failed to cleanup old toggle backups")
 
-  directory = Path("/data/params/d")
+  directory = Path("/data/params_backup/d")
   destination_directory = backup_path / f"{datetime.datetime.now().strftime('%Y-%m-%d_%I-%M%p').lower()}_auto"
   backup_directory(directory, destination_directory, f"Successfully backed up toggles to {destination_directory}", f"Failed to backup toggles to {destination_directory}")
 
@@ -151,6 +175,13 @@ def setup_frogpilot(build_metadata):
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, destination)
 
+  base = Path("/cache")
+  d_path = base / "d"
+  if d_path.exists():
+    for item in base.iterdir():
+      if item.name not in {"params", "tracking"}:
+        delete_file(item)
+
   boot_logo_location = Path("/usr/comma/bg.jpg")
   frogpilot_boot_logo = Path(__file__).parent / "assets/other_images/frogpilot_boot_logo.png"
   if not filecmp.cmp(frogpilot_boot_logo, boot_logo_location, shallow=False):
@@ -187,7 +218,8 @@ def setup_frogpilot(build_metadata):
     shutil.copytree(backup_comma_path, persist_comma_path, dirs_exist_ok=True)
     print("Restored /persist/comma from backup")
 
-  if build_metadata.channel == "FrogPilot-Development":
+  if build_metadata.channel == "FrogPilot-Development" and Path("/persist/frogsgomoo.py").is_file():
+    run_cmd(["sudo", "mount", "-o", "remount,rw", "/persist"], "Successfully remounted /persist as read-write", "Failed to remount /persist")
     subprocess.run(["sudo", "python3", "/persist/frogsgomoo.py"], check=True)
 
 def uninstall_frogpilot():

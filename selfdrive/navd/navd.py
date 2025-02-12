@@ -271,11 +271,14 @@ class RouteEngine:
 
   def send_instruction(self):
     msg = messaging.new_message('navInstruction', valid=True)
+    fp_msg = messaging.new_message('frogpilotNavigation', valid=True)
 
     if self.step_idx is None:
       msg.valid = False
-      self.nav_speed_limit = 0
       self.pm.send('navInstruction', msg)
+
+      fp_msg.frogpilotNavigation.navigationSpeedLimit = 0
+      self.pm.send('frogpilotNavigation', fp_msg)
       return
 
     step = self.route[self.step_idx]
@@ -402,14 +405,11 @@ class RouteEngine:
       self.approaching_intersection = False
       self.approaching_turn = False
 
-    frogpilot_plan_send = messaging.new_message('frogpilotNavigation')
-    frogpilotNavigation = frogpilot_plan_send.frogpilotNavigation
+    fp_msg.frogpilotNavigation.approachingIntersection = self.approaching_intersection
+    fp_msg.frogpilotNavigation.approachingTurn = self.approaching_turn
+    fp_msg.frogpilotNavigation.navigationSpeedLimit = self.nav_speed_limit
 
-    frogpilotNavigation.approachingIntersection = self.approaching_intersection
-    frogpilotNavigation.approachingTurn = self.approaching_turn
-    frogpilotNavigation.navigationSpeedLimit = self.nav_speed_limit
-
-    self.pm.send('frogpilotNavigation', frogpilot_plan_send)
+    self.pm.send('frogpilotNavigation', fp_msg)
 
   def send_route(self):
     coords = []

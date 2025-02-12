@@ -28,7 +28,7 @@ def assets_checks(model_manager, theme_manager):
   if params_memory.get_bool("FlashPanda"):
     run_thread_with_lock("flash_panda", flash_panda)
 
-  model_to_download = params_memory.get(MODEL_DOWNLOAD_PARAM, encoding='utf-8')
+  model_to_download = params_memory.get(MODEL_DOWNLOAD_PARAM, encoding="utf-8")
   if model_to_download is not None:
     run_thread_with_lock("download_model", model_manager.download_model, (model_to_download,))
 
@@ -47,7 +47,7 @@ def assets_checks(model_manager, theme_manager):
   ]
 
   for param, asset_type in assets:
-    asset_to_download = params_memory.get(param, encoding='utf-8')
+    asset_to_download = params_memory.get(param, encoding="utf-8")
     if asset_to_download is not None:
       run_thread_with_lock("download_theme", theme_manager.download_theme, (asset_type, asset_to_download, param))
 
@@ -69,9 +69,9 @@ def frogpilot_thread():
   if error_log.is_file():
     error_log.unlink()
 
-  params_cache = Params("/cache")
+  params_cache = Params("/cache/params")
 
-  frogpilot_planner = FrogPilotPlanner(error_log)
+  frogpilot_planner = FrogPilotPlanner()
   frogpilot_tracking = FrogPilotTracking()
   frogpilot_variables = FrogPilotVariables()
   model_manager = ModelManager()
@@ -88,18 +88,18 @@ def frogpilot_thread():
 
   toggles_last_updated = datetime.datetime.now()
 
-  pm = messaging.PubMaster(['frogpilotPlan'])
-  sm = messaging.SubMaster(['carControl', 'carState', 'controlsState', 'deviceState', 'driverMonitoringState',
-                            'managerState', 'modelV2', 'pandaStates', 'radarState',
-                            'frogpilotCarControl', 'frogpilotCarState', 'frogpilotNavigation'],
-                            poll='modelV2', ignore_avg_freq=['radarState'])
+  pm = messaging.PubMaster(["frogpilotPlan"])
+  sm = messaging.SubMaster(["carControl", "carState", "controlsState", "deviceState", "driverMonitoringState",
+                            "managerState", "modelV2", "pandaStates", "radarState",
+                            "frogpilotCarControl", "frogpilotCarState", "frogpilotNavigation"],
+                            poll="modelV2", ignore_avg_freq=["radarState"])
 
   while True:
     sm.update()
 
     now = datetime.datetime.now()
 
-    started = sm['deviceState'].started
+    started = sm["deviceState"].started
 
     if params_memory.get_bool("FrogPilotTogglesUpdated") or theme_updated:
       frogpilot_variables.update(theme_manager.theme_assets["holiday_theme"], started)
@@ -114,7 +114,7 @@ def frogpilot_thread():
     toggles_updated = (now - toggles_last_updated).total_seconds() <= 1
 
     if not started and started_previously:
-      frogpilot_planner = FrogPilotPlanner(error_log)
+      frogpilot_planner = FrogPilotPlanner()
       frogpilot_tracking = FrogPilotTracking()
 
       run_update_checks = True
@@ -132,16 +132,16 @@ def frogpilot_thread():
       if error_log.is_file():
         error_log.unlink()
 
-    if started and sm.updated['modelV2']:
-      frogpilot_planner.update(sm['carControl'], sm['carState'], sm['controlsState'], sm['frogpilotCarControl'], sm['frogpilotCarState'],
-                               sm['frogpilotNavigation'], sm['modelV2'], radarless_model, sm['radarState'], frogpilot_toggles)
+    if started and sm.updated["modelV2"]:
+      frogpilot_planner.update(sm["carControl"], sm["carState"], sm["controlsState"], sm["frogpilotCarControl"], sm["frogpilotCarState"],
+                               sm["frogpilotNavigation"], sm["modelV2"], radarless_model, sm["radarState"], frogpilot_toggles)
       frogpilot_planner.publish(sm, pm, toggles_updated)
 
-      frogpilot_tracking.update(sm['carState'], sm['controlsState'], sm['frogpilotCarControl'])
+      frogpilot_tracking.update(sm["carState"], sm["controlsState"], sm["frogpilotCarControl"])
     elif not started and toggles_updated:
-      frogpilot_plan_send = messaging.new_message('frogpilotPlan')
+      frogpilot_plan_send = messaging.new_message("frogpilotPlan")
       frogpilot_plan_send.frogpilotPlan.togglesUpdated = toggles_updated
-      pm.send('frogpilotPlan', frogpilot_plan_send)
+      pm.send("frogpilotPlan", frogpilot_plan_send)
 
     started_previously = started
 

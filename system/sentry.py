@@ -58,6 +58,9 @@ def capture_user_report(branch, frogpilot_toggles, params, params_tracking):
     sentry_sdk.flush()
     return
 
+  if frogpilot_toggles.car_make == "mock" or frogpilot_toggles.car_model == "MOCK":
+    return
+
   param_types = {
     "FrogPilot Controls": ParamKeyType.FROGPILOT_CONTROLS,
     "FrogPilot Vehicles": ParamKeyType.FROGPILOT_VEHICLES,
@@ -85,19 +88,15 @@ def capture_user_report(branch, frogpilot_toggles, params, params_tracking):
   with sentry_sdk.push_scope() as scope:
     for label, key_values in matched_params.items():
       scope.set_context(label, key_values)
+      scope.set_tag("branch", branch)
+      scope.set_tag("car_make", frogpilot_toggles.car_make.capitalize())
+      scope.set_tag("car_model", frogpilot_toggles.car_model)
+      scope.set_tag("driving_model", frogpilot_toggles.model_name.replace(' (Default)', ''))
 
     fingerprint = [params.get("DongleId", encoding="utf-8")]
     scope.fingerprint = fingerprint
 
-    title = (
-      f"Logged user: {fingerprint} - "
-      f"{branch} - "
-      f"{frogpilot_toggles.car_make.capitalize()} - "
-      f"{frogpilot_toggles.car_model} - "
-      f"{frogpilot_toggles.model_name.replace(' (Default)', '')}"
-    )
-
-    sentry_sdk.capture_message(title, level="info")
+    sentry_sdk.capture_message(f"Logged user: {fingerprint}", level="info")
     sentry_sdk.flush()
 
 
@@ -112,6 +111,13 @@ def capture_report(discord_user, report, frogpilot_toggles):
     scope.set_context("Error Log", {"content": error_content})
     scope.set_context("Toggle Values", frogpilot_toggles)
     sentry_sdk.capture_message(f"{discord_user} submitted report: {report}", level="fatal")
+    sentry_sdk.flush()
+
+
+def capture_system(tmux_log):
+  with sentry_sdk.push_scope() as scope:
+    scope.set_context("tmux_log", {"log": tmux_log})
+    sentry_sdk.capture_message("High Resource Usage Detected", level="fatal")
     sentry_sdk.flush()
 
 

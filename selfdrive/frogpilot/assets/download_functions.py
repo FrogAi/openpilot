@@ -21,7 +21,7 @@ def check_github_rate_limit():
     if remaining > 0:
       return True
 
-    reset_time = datetime.utcfromtimestamp(rate_limit_info["rate"]["reset"]).strftime('%Y-%m-%d %H:%M:%S')
+    reset_time = datetime.utcfromtimestamp(rate_limit_info["rate"]["reset"]).strftime("%Y-%m-%d %H:%M:%S")
     print("GitHub rate limit reached")
     print(f"GitHub Rate Limit Resets At (UTC): {reset_time}")
     return False
@@ -87,9 +87,9 @@ def handle_request_error(error, destination, download_param, progress_param, par
 
 def get_remote_file_size(url):
   try:
-    response = requests.head(url, headers={'Accept-Encoding': 'identity'}, timeout=10)
+    response = requests.head(url, headers={"Accept-Encoding": "identity"}, timeout=10)
     response.raise_for_status()
-    return int(response.headers.get('Content-Length', 0))
+    return int(response.headers.get("Content-Length", 0))
   except Exception as error:
     handle_request_error(error, None, None, None, None)
     return 0

@@ -32,7 +32,7 @@ from openpilot.selfdrive.controls.lib.vehicle_model import VehicleModel
 from openpilot.system.hardware import HARDWARE
 
 from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_acceleration import get_max_allowed_accel
-from openpilot.selfdrive.frogpilot.frogpilot_variables import NON_DRIVING_GEARS, get_frogpilot_toggles, params_memory
+from openpilot.selfdrive.frogpilot.frogpilot_variables import CRASHES_DIR, NON_DRIVING_GEARS, get_frogpilot_toggles, params_memory
 
 SOFT_DISABLE_TIME = 3  # seconds
 LDW_MIN_SPEED = 31 * CV.MPH_TO_MS
@@ -199,6 +199,8 @@ class Controls:
     self.use_old_long = self.frogpilot_toggles.old_long_api
 
     self.display_timer = 0
+
+    self.error_log = CRASHES_DIR / "error.txt"
 
   def set_initial_state(self):
     if REPLAY:
@@ -431,6 +433,12 @@ class Controls:
 
     if self.frogpilot_toggles.block_user:
       self.events.add(EventName.blockUser, static=True)
+
+    if self.error_log.is_file():
+      if self.frogpilot_toggles.random_events:
+        self.events.add(EventName.openpilotCrashedRandomEvent)
+      else:
+        self.events.add(EventName.openpilotCrashed)
 
   def data_sample(self):
     """Receive data from sockets"""

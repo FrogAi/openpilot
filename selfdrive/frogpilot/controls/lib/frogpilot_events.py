@@ -27,7 +27,6 @@ class FrogPilotEvents:
     self.goat_played = False
     self.holiday_theme_played = False
     self.no_entry_alert_played = False
-    self.openpilot_crashed_played = False
     self.previous_traffic_mode = False
     self.random_event_played = False
     self.stopped_for_light = False
@@ -79,13 +78,6 @@ class FrogPilotEvents:
         self.events.add(EventName.leadDeparting)
     else:
       self.tracking_lead_distance = 0
-
-    if not self.openpilot_crashed_played and self.frogpilot_planner.error_log.is_file():
-      if frogpilot_toggles.random_events:
-        self.events.add(EventName.openpilotCrashedRandomEvent)
-      else:
-        self.events.add(EventName.openpilotCrashed)
-      self.openpilot_crashed_played = True
 
     if not self.random_event_played and frogpilot_toggles.random_events:
       acceleration = carState.aEgo
@@ -184,7 +176,7 @@ class FrogPilotEvents:
     if frogpilot_toggles.speed_limit_changed_alert and self.frogpilot_planner.frogpilot_vcruise.slc.speed_limit_changed and self.frogpilot_planner.frogpilot_vcruise.speed_limit_timer < 1:
       self.events.add(EventName.speedLimitChanged)
 
-    if 5 > self.frame > 4 and params.get("NNFFModelName", encoding='utf-8') is not None:
+    if 5 > self.frame > 4 and params.get("NNFFModelName", encoding="utf-8") is not None:
       self.events.add(EventName.torqueNNLoad)
 
     if frogpilotCarState.trafficModeActive != self.previous_traffic_mode:

@@ -49,7 +49,7 @@ private:
   Params params;
   Params params_default{"/dev/shm/params_default"};
   Params params_memory{"/dev/shm/params"};
-  Params params_cache{"/cache"};
+  Params params_cache{"/cache/params"};
 
   QDir modelDir{"/data/models/"};
 
