@@ -1,6 +1,7 @@
 from cereal import car
 from openpilot.common.numpy_fast import clip, interp
 from openpilot.common.realtime import DT_CTRL
+from openpilot.selfdrive.car import rate_limit
 from openpilot.selfdrive.controls.lib.drive_helpers import CONTROL_N, apply_deadzone
 from openpilot.selfdrive.controls.lib.pid import PIDController
 from openpilot.selfdrive.modeld.constants import ModelConstants
@@ -96,6 +97,9 @@ class LongControl:
     self.v_pid = 0.0
     self.last_output_accel = 0.0
 
+    # FrogPilot variables
+    self.previous_integral = self.pid.i
+
   def reset(self):
     self.pid.reset()
 
@@ -103,7 +107,6 @@ class LongControl:
     """Update longitudinal control. This updates the state machine and runs a PID loop"""
     self.pid.neg_limit = accel_limits[0]
     self.pid.pos_limit = accel_limits[1]
-    self.pid._k_i = (frogpilot_toggles.kiBP, frogpilot_toggles.kiV)
 
     self.long_control_state = long_control_state_trans(self.CP, active, self.long_control_state, CS.vEgo,
                                                        should_stop, CS.brakePressed,
@@ -124,6 +127,18 @@ class LongControl:
       self.reset()
 
     else:  # LongCtrlState.pid
+      if frogpilot_toggles.frogsgomoo_tweak:
+        integral = interp(CS.vEgo, frogpilot_toggles.kiBP, frogpilot_toggles.kiV)
+
+        if a_target > 0.25:
+          self.pid.i = rate_limit(integral, self.previous_integral, -DT_CTRL * integral, DT_CTRL * integral)
+        elif a_target < -0.25:
+          self.pid.reset()
+        else:
+          self.pid.i = rate_limit(0, self.previous_integral, -DT_CTRL * integral, DT_CTRL * integral)
+
+        self.previous_integral = self.pid.i
+
       error = a_target - CS.aEgo
       output_accel = self.pid.update(error, speed=CS.vEgo,
                                      feedforward=a_target)
