@@ -83,7 +83,7 @@ def calculate_road_curvature(modelData, v_ego):
 def delete_file(path):
   path = Path(path)
   try:
-    if path.is_file() or path.is_symlink():
+    if path.is_file():
       path.unlink()
       print(f"Deleted file: {path}")
     elif path.is_dir():
@@ -114,7 +114,7 @@ def flash_panda():
   Panda().wait_for_panda(None, 30)
   params_memory.put_bool("FlashPanda", False)
 
-def is_url_pingable(url, timeout=10):
+def is_url_pingable(url, timeout=5):
   try:
     request = urllib.request.Request(
       url,

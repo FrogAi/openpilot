@@ -36,7 +36,7 @@ def manager_init() -> None:
 
   # FrogPilot variables
   setup_frogpilot(build_metadata)
-  params_cache = Params("/cache/params")
+  params_cache = Params("/cache")
   convert_params(params_cache)
 
   default_params: list[tuple[str, str | bytes]] = [

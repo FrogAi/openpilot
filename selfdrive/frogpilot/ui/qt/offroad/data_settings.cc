@@ -128,7 +128,7 @@ FrogPilotDataPanel::FrogPilotDataPanel(FrogPilotSettingsWindow *parent) : FrogPi
   FrogPilotButtonsControl *frogpilotBackupBtn = new FrogPilotButtonsControl(tr("FrogPilot Backups"), tr("Manage your FrogPilot backups."), "", {tr("BACKUP"), tr("DELETE"), tr("DELETE ALL"), tr("RESTORE")});
   QObject::connect(frogpilotBackupBtn, &FrogPilotButtonsControl::buttonClicked, [=](int id) {
     QDir backupDir("/data/backups");
-    QStringList backupNames = backupDir.entryList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name).filter(QRegularExpression("^(?!.*_in_progress(?:\\..*)?$).*$"));
+    QStringList backupNames = backupDir.entryList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name).filter(QRegularExpression("^(?!.*_in_progress$).*$"));
 
     if (id == 0) {
       QString nameSelection = InputDialog::getText(tr("Name your backup"), this, "", false, 1).trimmed().replace(" ", "_");
@@ -137,7 +137,7 @@ FrogPilotDataPanel::FrogPilotDataPanel(FrogPilotSettingsWindow *parent) : FrogPi
           ConfirmationDialog::alert(tr("A backup with this name already exists. Please choose a different name."), this);
           return;
         }
-        bool compressed = FrogPilotConfirmationDialog::yesorno(tr("Do you want to compress this backup? The final result will be significantly smaller and will run in the background."), this);
+        bool compressed = FrogPilotConfirmationDialog::yesorno(tr("Do you want to compress this backup? The final result will be 2.25x smaller and will run in the background, but can take 10+ minutes."), this);
         std::thread([=]() {
           parent->keepScreenOn = true;
 
@@ -157,9 +157,9 @@ FrogPilotDataPanel::FrogPilotDataPanel(FrogPilotSettingsWindow *parent) : FrogPi
           if (compressed) {
             frogpilotBackupBtn->setValue(tr("Compressing..."));
 
-            std::system(("tar -cf - -C " + inProgressBackupPath + " . | zstd -2 -T0 -o " + fullBackupPath + "_in_progress.tar.zst").c_str());
+            std::system(("tar -czf " + fullBackupPath + "_in_progress.tar.gz -C " + inProgressBackupPath + " .").c_str());
             std::filesystem::remove_all(inProgressBackupPath);
-            std::filesystem::rename(fullBackupPath + "_in_progress.tar.zst", fullBackupPath + ".tar.zst");
+            std::filesystem::rename(fullBackupPath + "_in_progress.tar.gz", fullBackupPath + ".tar.gz");
           } else {
             std::filesystem::rename(inProgressBackupPath, fullBackupPath);
           }
@@ -192,7 +192,7 @@ FrogPilotDataPanel::FrogPilotDataPanel(FrogPilotSettingsWindow *parent) : FrogPi
             frogpilotBackupBtn->setVisibleButton(3, false);
 
             QDir dirToDelete(backupDir.filePath(selection));
-            if (selection.endsWith(".tar.gz") || selection.endsWith(".tar.zst")) {
+            if (selection.endsWith(".tar.gz")) {
               QFile::remove(dirToDelete.absolutePath());
             } else {
               dirToDelete.removeRecursively();
@@ -263,15 +263,6 @@ FrogPilotDataPanel::FrogPilotDataPanel(FrogPilotSettingsWindow *parent) : FrogPi
 
               std::filesystem::create_directories(extractDirectory);
               std::system(("tar --strip-components=1 -xzf " + sourcePath + " -C " + extractDirectory).c_str());
-
-              sourcePath = extractDirectory;
-            } else if (selection.endsWith(".tar.zst")) {
-              frogpilotBackupBtn->setValue(tr("Extracting..."));
-
-              std::filesystem::create_directories(extractDirectory);
-              std::system(("zstd -d " + sourcePath + " -o " + extractDirectory + "/backup.tar").c_str());
-              std::system(("tar --strip-components=1 -xf " + extractDirectory + "/backup.tar -C " + extractDirectory).c_str());
-              std::filesystem::remove(extractDirectory + "/backup.tar");
 
               sourcePath = extractDirectory;
             }
