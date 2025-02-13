@@ -11,8 +11,8 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     {"ForceAutoTuneOff", tr("Force Auto Tune Off"), tr("Forces comma's auto lateral tuning off for supported vehicles."), ""},
 
     {"AlwaysOnLateral", tr("Always on Lateral"), tr("openpilot's steering control stays active even when the brake or gas pedals are pressed.\n\nDeactivate only occurs with the 'Cruise Control' button."), "../frogpilot/assets/toggle_icons/icon_always_on_lateral.png"},
-    {"AlwaysOnLateralLKAS", tr("Control with LKAS Button"), tr("Controls the current state of 'Always on Lateral' with the 'LKAS' button."), ""},
     {"AlwaysOnLateralMain", tr("Enable with Cruise Control"), tr("Activates 'Always on Lateral' whenever 'Cruise Control' is active bypassing the requirement to enable openpilot first."), ""},
+    {"AlwaysOnLateralLKAS", tr("Enable with LKAS Button"), tr("Controls the current state of 'Always on Lateral' with the 'LKAS' button."), ""},
     {"PauseAOLOnBrake", tr("Pause on Brake Below"), tr("Pauses 'Always on Lateral' when the brake pedal is pressed below the set speed."), ""},
 
     {"LaneChangeCustomizations", tr("Lane Change Settings"), tr("How openpilot handles lane changes."), "../frogpilot/assets/toggle_icons/icon_lane.png"},
@@ -99,7 +99,7 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
       QObject::connect(aolToggle, &FrogPilotManageControl::manageButtonClicked, [this]() {
         std::set<QString> modifiedAOLKeys = aolKeys;
 
-        if (isSubaru || (params.getBool("ExperimentalModeActivation") && params.getBool("ExperimentalModeViaLKAS"))) {
+        if (!isHKG || (params.getBool("ExperimentalModeActivation") && params.getBool("ExperimentalModeViaLKAS"))) {
           modifiedAOLKeys.erase("AlwaysOnLateralLKAS");
         }
 
@@ -167,9 +167,22 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     }
   }
 
-  QObject::connect(static_cast<ToggleControl*>(toggles["AlwaysOnLateralLKAS"]), &ToggleControl::toggleFlipped, [this](bool state) {
+  ToggleControl *aolLKASToggle = static_cast<ToggleControl*>(toggles["AlwaysOnLateralLKAS"]);
+  ToggleControl *aolMainToggle = static_cast<ToggleControl*>(toggles["AlwaysOnLateralMain"]);
+  QObject::connect(aolLKASToggle, &ToggleControl::toggleFlipped, [this, aolMainToggle](bool state) {
+    if (state && params.getBool("AlwaysOnLateralMain")) {
+      params.putBool("AlwaysOnLateralMain", false);
+      static_cast<ParamControl*>(aolMainToggle)->refresh();
+    }
+
     if (state && params.getBool("ExperimentalModeViaLKAS")) {
       params.putBool("ExperimentalModeViaLKAS", false);
+    }
+  });
+  QObject::connect(aolMainToggle, &ToggleControl::toggleFlipped, [this, aolLKASToggle](bool state) {
+    if (state && params.getBool("AlwaysOnLateralLKAS")) {
+      params.putBool("AlwaysOnLateralLKAS", false);
+      static_cast<ParamControl*>(aolLKASToggle)->refresh();
     }
   });
 
@@ -284,8 +297,8 @@ void FrogPilotLateralPanel::showEvent(QShowEvent *event) {
   frogpilotToggleLevels = parent->frogpilotToggleLevels;
   hasAutoTune = parent->hasAutoTune;
   hasNNFFLog = parent->hasNNFFLog;
+  isHKG = parent->isHKG;
   isPIDCar = parent->isPIDCar;
-  isSubaru = parent->isSubaru;
   liveValid = parent->liveValid;
   frictionStock = parent->frictionStock;
   kpStock = parent->kpStock;

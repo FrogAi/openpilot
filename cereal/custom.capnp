@@ -26,7 +26,7 @@ struct FrogPilotCarState @0xaedffd8f31e7b55d {
     }
   }
 
-  alwaysOnLateralDisabled @0 :Bool;
+  alwaysOnLateralEnabled @0 :Bool;
   brakeLights @1 :Bool;
   dashboardSpeedLimit @2 :Float32;
   distanceLongPressed @3 :Bool;
