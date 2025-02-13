@@ -28,7 +28,7 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
       });
       deviceToggle = deviceManagementToggle;
     } else if (param == "DeviceShutdown") {
-      std::map<int, QString> shutdownLabels;
+      std::map<float, QString> shutdownLabels;
       for (int i = 0; i <= 33; ++i) {
         shutdownLabels[i] = i == 0 ? tr("5 mins") : i <= 3 ? QString::number(i * 15) + tr(" mins") : QString::number(i - 3) + (i == 4 ? tr(" hour") : tr(" hours"));
       }
@@ -38,7 +38,7 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
       std::vector<QString> uploadsToggleNames{tr("Only Onroad")};
       deviceToggle = new FrogPilotButtonToggleControl(param, title, desc, icon, uploadsToggles, uploadsToggleNames);
     } else if (param == "LowVoltageShutdown") {
-      deviceToggle = new FrogPilotParamValueControl(param, title, desc, icon, 11.8, 12.5, tr(" volts"), std::map<int, QString>(), 0.01);
+      deviceToggle = new FrogPilotParamValueControl(param, title, desc, icon, 11.8, 12.5, tr(" volts"), std::map<float, QString>(), 0.1);
 
     } else if (param == "ScreenManagement") {
       FrogPilotManageControl *screenToggle = new FrogPilotManageControl(param, title, desc, icon);
@@ -49,7 +49,7 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
       });
       deviceToggle = screenToggle;
     } else if (param == "ScreenBrightness" || param == "ScreenBrightnessOnroad") {
-      std::map<int, QString> brightnessLabels;
+      std::map<float, QString> brightnessLabels;
       int minBrightness = (param == "ScreenBrightnessOnroad") ? 0 : 1;
       for (int i = 0; i <= 101; ++i) {
         brightnessLabels[i] = i == 101 ? tr("Auto") : i == 0 ? tr("Screen Off") : QString::number(i) + "%";
@@ -77,8 +77,12 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
   std::set<QString> brightnessKeys = {"ScreenBrightness", "ScreenBrightnessOnroad"};
   for (const QString &key : brightnessKeys) {
     FrogPilotParamValueControl *paramControl = static_cast<FrogPilotParamValueControl*>(toggles[key]);
-    QObject::connect(paramControl, &FrogPilotParamValueControl::valueChanged, [](int value) {
-      Hardware::set_brightness(value);
+    QObject::connect(paramControl, &FrogPilotParamValueControl::valueChanged, [this, key](int value) {
+      if (!started && key == "ScreenBrightness") {
+        Hardware::set_brightness(value);
+      } else if (started && key == "ScreenBrightnessOnroad") {
+        Hardware::set_brightness(value);
+      }
     });
   }
 

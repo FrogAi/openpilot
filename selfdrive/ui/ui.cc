@@ -93,7 +93,16 @@ void update_model(UIState *s,
                   const cereal::UiPlan::Reader &plan) {
   SubMaster &sm = *(s->sm);
   UIScene &scene = s->scene;
-  scene.left_curve = model.getOrientationRate().getZ()[33 - 1] < 0;
+  auto orientation_rate = model.getOrientationRate().getZ();
+  auto velocity = model.getVelocity().getX();
+  float max_lat_acc = 0.0f;
+  for (size_t i = 0; i < orientation_rate.size(); i++) {
+    float lat_acc = orientation_rate[i] * velocity[i];
+    if (std::abs(lat_acc) > std::abs(max_lat_acc)) {
+      max_lat_acc = lat_acc;
+    }
+  }
+  scene.left_curve = max_lat_acc < 0;
   float path_offset_z = sm["liveCalibration"].getLiveCalibration().getHeight()[0];
   auto plan_position = plan.getPosition();
   scene.model_length = model.getPosition().getX()[33 - 1];
@@ -394,7 +403,6 @@ void ui_update_frogpilot_params(UIState *s) {
   scene.lead_metrics = scene.frogpilot_toggles.value("lead_metrics").toBool();
   scene.map_style = scene.frogpilot_toggles.value("map_style").toDouble();
   scene.memory_metrics = scene.frogpilot_toggles.value("memory_metrics").toBool();
-  scene.minimum_lane_change_speed = scene.frogpilot_toggles.value("minimum_lane_change_speed").toDouble();
   scene.model = scene.frogpilot_toggles.value("model").toString();
   scene.model_name = scene.frogpilot_toggles.value("model_name").toString();
   scene.model_randomizer = scene.frogpilot_toggles.value("model_randomizer").toBool();

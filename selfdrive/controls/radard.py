@@ -7,7 +7,6 @@ from typing import Any
 
 import capnp
 from cereal import messaging, log, car
-from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.numpy_fast import interp
 from openpilot.common.params import Params
 from openpilot.common.realtime import DT_CTRL, Ratekeeper, Priority, config_realtime_process
@@ -53,7 +52,7 @@ class KalmanParams:
 
 
 class Track:
-  def __init__(self, identifier: int, v_lead: float, kalman_params: KalmanParams, update_rate):
+  def __init__(self, identifier: int, v_lead: float, kalman_params: KalmanParams):
     self.identifier = identifier
     self.cnt = 0
     self.aLeadTau = _LEAD_ACCEL_TAU
@@ -61,9 +60,6 @@ class Track:
     self.K_C = kalman_params.C
     self.K_K = kalman_params.K
     self.kf = KF1D([[v_lead], [0.0]], self.K_A, self.K_C, self.K_K)
-
-    # FrogPilot variables
-    self.far_lead_filter = FirstOrderFilter(0, 1, update_rate)
 
   def update(self, d_rel: float, y_rel: float, v_rel: float, v_lead: float, measured: float):
     # relative values, copy
@@ -114,35 +110,29 @@ class Track:
     }
 
   def potential_adjacent_lead(self, far: bool, left: bool, model_data: capnp._DynamicStructReader, standstill: bool):
-    if standstill or self.vLead < 1:
+    if standstill or self.vLeadK < 1:
       return False
-
-    lead_position = self.yRel + interp(self.dRel, model_data.position.x, model_data.position.y)
 
     near_lane_index = 1 if left else 2
     far_lane_index = 0 if left else 3
 
     if far:
       lane_position = interp(self.dRel, model_data.laneLines[far_lane_index].x, model_data.laneLines[far_lane_index].y)
-
-      return lead_position < lane_position if left else lead_position > lane_position
+      return self.yRel < lane_position if left else lane_position < self.yRel
     else:
       near_lane = interp(self.dRel, model_data.laneLines[near_lane_index].x, model_data.laneLines[near_lane_index].y)
       far_lane = interp(self.dRel, model_data.laneLines[far_lane_index].x, model_data.laneLines[far_lane_index].y)
 
-      return min(near_lane, far_lane) < lead_position < max(near_lane, far_lane)
+      return min(near_lane, far_lane) < self.yRel < max(near_lane, far_lane)
 
-  def potential_far_lead(self, model_data: capnp._DynamicStructReader, standstill: bool):
-    if standstill or self.vLead < 1:
+  def potential_far_lead(self, model_data: capnp._DynamicStructReader):
+    if self.vLeadK < 1:
       return False
 
     left_lane = interp(self.dRel, model_data.laneLines[1].x, model_data.laneLines[1].y)
     right_lane = interp(self.dRel, model_data.laneLines[2].x, model_data.laneLines[2].y)
 
-    lead_position = self.yRel + interp(self.dRel, model_data.position.x, model_data.position.y)
-
-    self.far_lead_filter.update(min(left_lane, right_lane) < lead_position < max(left_lane, right_lane))
-    return self.far_lead_filter.x >= 0.99
+    return left_lane < self.yRel < right_lane
 
   def potential_low_speed_lead(self, v_ego: float):
     # stop for stuff in front of you and low speed, even without model confirmation
@@ -204,8 +194,8 @@ def get_RadarState_from_vision(lead_msg: capnp._DynamicStructReader, v_ego: floa
 
 
 def get_lead(v_ego: float, ready: bool, tracks: dict[int, Track], lead_msg: capnp._DynamicStructReader,
-             model_v_ego: float, standstill: bool,
-             frogpilot_toggles: SimpleNamespace, frogpilotCarState: capnp._DynamicStructReader, model_data: capnp._DynamicStructReader,
+             model_v_ego: float, model_data: capnp._DynamicStructReader,
+             frogpilot_toggles: SimpleNamespace, frogpilotCarState: capnp._DynamicStructReader,
              low_speed_override: bool = True) -> dict[str, Any]:
   # Determine leads, this is where the essential logic happens
   if len(tracks) > 0 and ready and lead_msg.prob > frogpilot_toggles.lead_detection_probability:
@@ -229,10 +219,11 @@ def get_lead(v_ego: float, ready: bool, tracks: dict[int, Track], lead_msg: capn
         lead_dict = closest_track.get_RadarState()
 
     if not lead_dict['status'] and frogpilot_toggles.allow_far_lead_tracking:
-      far_lead_tracks = [c for c in tracks.values() if c.potential_far_lead(model_data, standstill)]
+      far_lead_tracks = [c for c in tracks.values() if c.potential_far_lead(model_data)]
       if len(far_lead_tracks) > 0:
         closest_track = min(far_lead_tracks, key=lambda c: c.dRel)
         lead_dict = closest_track.get_RadarState()
+        lead_dict['vLead'] = lead_dict['vLeadK']
 
   if 'dRel' in lead_dict:
     lead_dict['dRel'] -= frogpilot_toggles.increased_stopped_distance if not frogpilotCarState.trafficModeActive else 0
@@ -240,7 +231,7 @@ def get_lead(v_ego: float, ready: bool, tracks: dict[int, Track], lead_msg: capn
   return lead_dict
 
 
-def get_lead_adjacent(tracks: dict[int, Track], model_data: capnp._DynamicStructReader, standstill: bool, left: bool = True, far: bool = False) -> dict[str, Any]:
+def get_adjacent_lead(tracks: dict[int, Track], model_data: capnp._DynamicStructReader, standstill: bool, left: bool = True, far: bool = False) -> dict[str, Any]:
   lead_dict = {'status': False}
 
   adjacent_tracks = [c for c in tracks.values() if c.potential_adjacent_lead(far, left, model_data, standstill)]
@@ -275,7 +266,7 @@ class RadarD:
 
     self.classic_model = self.frogpilot_toggles.classic_model
 
-  def update(self, sm: messaging.SubMaster, rr, update_rate):
+  def update(self, sm: messaging.SubMaster, rr):
     self.ready = sm.seen['modelV2']
     self.current_time = 1e-9*max(sm.logMonoTime.values())
 
@@ -308,7 +299,7 @@ class RadarD:
 
       # create the track if it doesn't exist or it's a new track
       if ids not in self.tracks:
-        self.tracks[ids] = Track(ids, v_lead, self.kalman_params, update_rate)
+        self.tracks[ids] = Track(ids, v_lead, self.kalman_params)
       self.tracks[ids].update(rpt[0], rpt[1], rpt[2], v_lead, rpt[3])
 
     # *** publish radarState ***
@@ -326,14 +317,14 @@ class RadarD:
       model_v_ego = self.v_ego
     leads_v3 = sm['modelV2'].leadsV3
     if len(leads_v3) > 1:
-      self.radar_state.leadOne = get_lead(self.v_ego, self.ready, self.tracks, leads_v3[0], model_v_ego, sm['carState'].standstill, self.frogpilot_toggles, sm['frogpilotCarState'], sm['modelV2'], low_speed_override=True)
-      self.radar_state.leadTwo = get_lead(self.v_ego, self.ready, self.tracks, leads_v3[1], model_v_ego, sm['carState'].standstill, self.frogpilot_toggles, sm['frogpilotCarState'], sm['modelV2'], low_speed_override=False)
+      self.radar_state.leadOne = get_lead(self.v_ego, self.ready, self.tracks, leads_v3[0], model_v_ego, sm['modelV2'], self.frogpilot_toggles, sm['frogpilotCarState'], low_speed_override=True)
+      self.radar_state.leadTwo = get_lead(self.v_ego, self.ready, self.tracks, leads_v3[1], model_v_ego, sm['modelV2'], self.frogpilot_toggles, sm['frogpilotCarState'], low_speed_override=False)
 
     if self.frogpilot_toggles.adjacent_lead_tracking and self.ready:
-      self.radar_state.leadLeft = get_lead_adjacent(self.tracks, sm['modelV2'], sm['carState'].standstill, left=True)
-      self.radar_state.leadLeftFar = get_lead_adjacent(self.tracks, sm['modelV2'], sm['carState'].standstill, left=True, far=True)
-      self.radar_state.leadRight = get_lead_adjacent(self.tracks, sm['modelV2'], sm['carState'].standstill, left=False)
-      self.radar_state.leadRightFar = get_lead_adjacent(self.tracks, sm['modelV2'], sm['carState'].standstill, left=False, far=True)
+      self.radar_state.leadLeft = get_adjacent_lead(self.tracks, sm['modelV2'], sm['carState'].standstill, left=True)
+      self.radar_state.leadLeftFar = get_adjacent_lead(self.tracks, sm['modelV2'], sm['carState'].standstill, left=True, far=True)
+      self.radar_state.leadRight = get_adjacent_lead(self.tracks, sm['modelV2'], sm['carState'].standstill, left=False)
+      self.radar_state.leadRightFar = get_adjacent_lead(self.tracks, sm['modelV2'], sm['carState'].standstill, left=False, far=True)
 
     # Update FrogPilot parameters
     if sm['frogpilotPlan'].togglesUpdated:
@@ -422,7 +413,7 @@ def main():
       if rr is None:
         continue
 
-      RD.update(sm, rr, 1.0 / CP.radarTimeStep)
+      RD.update(sm, rr)
       RD.publish(pm, -rk.remaining*1000.0)
       rk.monitor_time()
   else:

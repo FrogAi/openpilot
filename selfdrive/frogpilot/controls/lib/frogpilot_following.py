@@ -3,7 +3,7 @@ import numpy as np
 
 from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import COMFORT_BRAKE, STOP_DISTANCE, desired_follow_distance, get_jerk_factor, get_T_FOLLOW
 
-from openpilot.selfdrive.frogpilot.frogpilot_variables import CITY_SPEED_LIMIT, CRUISING_SPEED
+from openpilot.selfdrive.frogpilot.frogpilot_variables import CITY_SPEED_LIMIT
 
 TRAFFIC_MODE_BP = [0., CITY_SPEED_LIMIT]
 
@@ -79,7 +79,7 @@ class FrogPilotFollowing:
       self.t_follow /= acceleration_offset
 
     # Offset by FrogAi for FrogPilot for a more natural approach to a slower lead
-    if (frogpilot_toggles.conditional_slower_lead or frogpilot_toggles.human_following) and v_lead < v_ego > CRUISING_SPEED:
+    if (frogpilot_toggles.conditional_slower_lead or frogpilot_toggles.human_following) and v_lead < v_ego:
       distance_factor = max(lead_distance - (v_lead * self.t_follow), 1)
       far_lead_offset = max(v_lead - CITY_SPEED_LIMIT, 1)
       braking_offset = np.clip(min(v_ego - v_lead, v_lead) * far_lead_offset - COMFORT_BRAKE, 1, distance_factor)

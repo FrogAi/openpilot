@@ -76,7 +76,7 @@ std::string ensure_params_path(const std::string &prefix, const std::string &pat
 class FileLock {
 public:
   FileLock(const std::string &fn) {
-    if (fn.rfind("/cache", 0) == 0) {
+    if (fn.rfind("/cache", 0) == 0 || fn.rfind("/data/params_backup", 0) == 0) {
       return;
     }
 
@@ -492,7 +492,6 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"SLCPriority1", PERSISTENT | FROGPILOT_CONTROLS},
     {"SLCPriority2", PERSISTENT | FROGPILOT_CONTROLS},
     {"SLCPriority3", PERSISTENT | FROGPILOT_CONTROLS},
-    {"SmartTurnControl", PERSISTENT | FROGPILOT_CONTROLS},
     {"SNGHack", PERSISTENT | FROGPILOT_VEHICLES},
     {"SoundToDownload", CLEAR_ON_MANAGER_START},
     {"SpeedLimitAccepted", CLEAR_ON_MANAGER_START},
@@ -540,7 +539,6 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"UnlockDoors", PERSISTENT | FROGPILOT_VEHICLES},
     {"Updated", PERSISTENT},
     {"UpdateWheelImage", CLEAR_ON_MANAGER_START},
-    {"UserCurvature", PERSISTENT},
     {"UserLogged", CLEAR_ON_MANAGER_START},
     {"UseSI", PERSISTENT | FROGPILOT_VISUALS},
     {"UseStockColors", CLEAR_ON_MANAGER_START},

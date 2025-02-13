@@ -38,7 +38,7 @@ private:
   LabelControl *ipLabel;
 
   Params params;
-  Params params_cache{"/cache"};
+  Params params_cache{"/cache/params"};
 
   QLabel *imageLabel;
 

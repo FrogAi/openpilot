@@ -83,16 +83,16 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
       lateralToggle = advancedLateralTuneToggle;
     } else if (param == "SteerFriction") {
       std::vector<QString> steerFrictionButton{"Reset"};
-      lateralToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 0.01, 0.25, QString(), std::map<int, QString>(), 0.01, {}, steerFrictionButton, false, false);
+      lateralToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 0.01, 0.25, QString(), std::map<float, QString>(), 0.01, {}, steerFrictionButton, false, false);
     } else if (param == "SteerKP") {
       std::vector<QString> steerKPButton{"Reset"};
-      lateralToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, kpStock * 0.50, kpStock * 1.50, QString(), std::map<int, QString>(), 0.01, {}, steerKPButton, false, false);
+      lateralToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, kpStock * 0.50, kpStock * 1.50, QString(), std::map<float, QString>(), 0.01, {}, steerKPButton, false, false);
     } else if (param == "SteerLatAccel") {
       std::vector<QString> steerLatAccelButton{"Reset"};
-      lateralToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, latAccelStock * 0.25, latAccelStock * 1.25, QString(), std::map<int, QString>(), 0.01, {}, steerLatAccelButton, false, false);
+      lateralToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, latAccelStock * 0.25, latAccelStock * 1.25, QString(), std::map<float, QString>(), 0.01, {}, steerLatAccelButton, false, false);
     } else if (param == "SteerRatio") {
       std::vector<QString> steerRatioButton{"Reset"};
-      lateralToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, steerRatioStock * 0.75, steerRatioStock * 1.25, QString(), std::map<int, QString>(), 0.01, {}, steerRatioButton, false, false);
+      lateralToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, steerRatioStock * 0.75, steerRatioStock * 1.25, QString(), std::map<float, QString>(), 0.01, {}, steerRatioButton, false, false);
 
     } else if (param == "AlwaysOnLateral") {
       FrogPilotManageControl *aolToggle = new FrogPilotManageControl(param, title, desc, icon);
@@ -116,9 +116,13 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
       });
       lateralToggle = laneChangeToggle;
     } else if (param == "LaneChangeTime") {
-      lateralToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 5, tr(" seconds"), {{0, "Instant"}, {10, "1.0 second"}}, 0.1);
+      std::map<float, QString> laneChangeTimeLabels;
+      for (float i = 0; i <= 5; i += 0.1) {
+        laneChangeTimeLabels[i] = i == 0 ? tr("Instant") : i == 1.0 ? QString::number(i, 'f', 1) + " second" : QString::number(i, 'f', 1) + " seconds";
+      }
+      lateralToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 5, QString(), laneChangeTimeLabels, 0.1);
     } else if (param == "LaneDetectionWidth") {
-      lateralToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 15, tr(" feet"), std::map<int, QString>(), 0.1);
+      lateralToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 15, tr(" feet"), std::map<float, QString>(), 0.1);
     } else if (param == "MinimumLaneChangeSpeed") {
       lateralToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 99, tr("mph"));
 
@@ -147,7 +151,7 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     } else if (param == "PauseLateralSpeed") {
       std::vector<QString> pauseLateralToggles{"PauseLateralOnSignal"};
       std::vector<QString> pauseLateralToggleNames{"Turn Signal Only"};
-      lateralToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 0, 99, tr("mph"), std::map<int, QString>(), 1, pauseLateralToggles, pauseLateralToggleNames, true);
+      lateralToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 0, 99, tr("mph"), std::map<float, QString>(), 1, pauseLateralToggles, pauseLateralToggleNames, true);
     } else if (param == "PauseLateralOnSignal") {
       lateralToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 99, tr("mph"));
 

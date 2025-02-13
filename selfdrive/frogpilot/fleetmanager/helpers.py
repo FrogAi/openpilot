@@ -43,7 +43,7 @@ from openpilot.system.loggerd.xattr_cache import getxattr
 from panda import Panda
 from tools.lib.route import SegmentName
 
-from openpilot.selfdrive.frogpilot.frogpilot_variables import CRASHES_DIR, params, update_frogpilot_toggles
+from openpilot.selfdrive.frogpilot.frogpilot_variables import CRASHES_DIR, EXCLUDED_KEYS, frogpilot_default_params, params, update_frogpilot_toggles
 
 XOR_KEY = "s8#pL3*Xj!aZ@dWq"
 
@@ -452,22 +452,16 @@ def decode_parameters(encoded_string):
   return json.loads(decrypted_data)
 
 def get_all_toggle_values():
-  excluded_keys = [
-    "ApiCache_NavDestinations", "CalibrationParams", "CarParamsPersistent",
-    "CarParamsPrevRoute", "GitDiff", "LastGPSPosition", "LiveParameters",
-    "LiveTorqueParameters", "NavDestination", "NavPastDestinations"
-  ]
-
   toggle_values = {}
-  for key in params.all_keys():
-    if key.decode('utf-8') in excluded_keys:
+  for key, _, _ in frogpilot_default_params:
+    if key in EXCLUDED_KEYS:
       continue
-    if params.get_key_type(key) & ParamKeyType.PERSISTENT:
-      if isinstance(params.get(key), bytes):
-        value = params.get(key, encoding='utf-8')
-      else:
-        value = params.get(key) or "0"
-      toggle_values[key.decode('utf-8')] = value
+    raw_value = params.get(key)
+    if isinstance(raw_value, bytes):
+      value = raw_value.decode('utf-8')
+    else:
+      value = raw_value or "0"
+    toggle_values[key] = value
 
   return encode_parameters(toggle_values)
 
@@ -476,15 +470,12 @@ def reset_toggle_values():
   HARDWARE.reboot()
 
 def store_toggle_values(request_data):
-  excluded_keys = [
-    "ApiCache_NavDestinations", "CalibrationParams", "CarParamsPersistent",
-    "CarParamsPrevRoute", "GitDiff", "LastGPSPosition", "LiveParameters",
-    "LiveTorqueParameters", "NavDestination", "NavPastDestinations"
-  ]
+  allowed_keys = {key for key, _, _ in frogpilot_default_params}
+  allowed_keys -= EXCLUDED_KEYS
 
   toggle_values = decode_parameters(request_data['data'])
   for key, value in toggle_values.items():
-    if key in excluded_keys:
+    if key not in allowed_keys:
       continue
     params.put(key, value)
 

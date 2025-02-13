@@ -358,9 +358,8 @@ class CarState(CarStateBase):
     if CP.flags & HyundaiFlags.CAN_LFA_BTN:
       messages.append(("BCM_PO_11", 50))
 
-    messages += [
-      ("Navi_HU", 5),
-    ]
+    if CP.flags & HyundaiFlags.NAV_MSG:
+      messages.append(("Navi_HU", 5))
 
     return CANParser(DBC[CP.carFingerprint]["pt"], messages, 0)
 

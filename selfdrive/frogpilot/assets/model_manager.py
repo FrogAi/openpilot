@@ -21,7 +21,7 @@ MODEL_DOWNLOAD_PARAM = "ModelToDownload"
 
 class ModelManager:
   def __init__(self):
-    self.available_models = (params.get("AvailableModels", encoding='utf-8') or "").split(",")
+    self.available_models = (params.get("AvailableModels", encoding="utf-8") or "").split(",")
 
     self.downloading_model = False
 
@@ -29,7 +29,7 @@ class ModelManager:
   def fetch_models(url):
     try:
       with urllib.request.urlopen(url, timeout=10) as response:
-        return json.loads(response.read().decode('utf-8'))['models']
+        return json.loads(response.read().decode("utf-8"))["models"]
     except Exception as error:
       handle_request_error(error, None, None, None, None)
       return []
@@ -49,19 +49,19 @@ class ModelManager:
     try:
       response = requests.get(api_url)
       response.raise_for_status()
-      model_files = [file for file in response.json() if "." in file['name']]
+      model_files = [file for file in response.json() if "." in file["name"]]
 
       if "gitlab" in repo_url:
         model_sizes = {}
         for file in model_files:
-          file_path = file['path']
+          file_path = file["path"]
           metadata_url = f"https://gitlab.com/api/v4/projects/{urllib.parse.quote_plus(project_path)}/repository/files/{urllib.parse.quote_plus(file_path)}/raw?ref={branch}"
           metadata_response = requests.head(metadata_url)
           metadata_response.raise_for_status()
-          model_sizes[file['name'].rsplit('.', 1)[0]] = int(metadata_response.headers.get('content-length', 0))
+          model_sizes[file["name"].rsplit(".", 1)[0]] = int(metadata_response.headers.get("content-length", 0))
         return model_sizes
       else:
-        return {file['name'].rsplit('.', 1)[0]: file['size'] for file in model_files if 'size' in file}
+        return {file["name"].rsplit(".", 1)[0]: file["size"] for file in model_files if "size" in file}
 
     except Exception as error:
       handle_request_error(f"Failed to fetch model sizes from {'GitHub' if 'github' in repo_url else 'GitLab'}: {error}", None, None, None, None)
@@ -128,11 +128,11 @@ class ModelManager:
       shutil.copyfile(source_path, default_model_path)
       print(f"Copied the default model from {source_path} to {default_model_path}")
 
-    mlsim_default_model_path = MODELS_PATH / f"{DEFAULT_TINYGRAD_MODEL}.pkl"
+    tingrad_default_model_path = MODELS_PATH / f"{DEFAULT_TINYGRAD_MODEL}.pkl"
     source_path = Path(__file__).parents[2] / "tinygrad_modeld/models/supercombo_tinygrad.pkl"
-    if source_path.is_file() and not mlsim_default_model_path.is_file():
-      shutil.copyfile(source_path, mlsim_default_model_path)
-      print(f"Copied the default model from {source_path} to {mlsim_default_model_path}")
+    if source_path.is_file() and not tingrad_default_model_path.is_file():
+      shutil.copyfile(source_path, tingrad_default_model_path)
+      print(f"Copied the default tinygrad model from {source_path} to {tingrad_default_model_path}")
 
   def check_models(self, boot_run, repo_url):
     available_models = set(self.available_models) - {DEFAULT_MODEL, DEFAULT_CLASSIC_MODEL}
@@ -176,12 +176,12 @@ class ModelManager:
     self.download_all_models()
 
   def update_model_params(self, model_info, repo_url):
-    self.available_models = [model['id'] for model in model_info]
-    self.model_versions = [model['version'] for model in model_info]
+    self.available_models = [model["id"] for model in model_info]
+    self.model_versions = [model["version"] for model in model_info]
 
     params.put("AvailableModels", ",".join(self.available_models))
-    params.put("AvailableModelNames", ",".join([model['name'] for model in model_info]))
-    params.put("ExperimentalModels", ",".join([model['id'] for model in model_info if model.get("experimental", False)]))
+    params.put("AvailableModelNames", ",".join([model["name"] for model in model_info]))
+    params.put("ExperimentalModels", ",".join([model["id"] for model in model_info if model.get("experimental", False)]))
     params.put("ModelVersions", ",".join(self.model_versions))
     print("Models list updated successfully")
 
@@ -200,7 +200,7 @@ class ModelManager:
       self.check_models(boot_run, repo_url)
 
   def queue_model_download(self, model, model_name=None):
-    while params_memory.get(MODEL_DOWNLOAD_PARAM, encoding='utf-8'):
+    while params_memory.get(MODEL_DOWNLOAD_PARAM, encoding="utf-8"):
       time.sleep(1)
 
     params_memory.put(MODEL_DOWNLOAD_PARAM, model)
@@ -216,7 +216,7 @@ class ModelManager:
     model_info = self.fetch_models(f"{repo_url}/Versions/model_names_{VERSION}.json")
     if model_info:
       available_models = [model["id"] for model in model_info]
-      available_model_names = [re.sub(r'[🗺️👀📡]', '', model["name"]).strip() for model in model_info]
+      available_model_names = [re.sub(r"[🗺️👀📡]", "", model["name"]).strip() for model in model_info]
       for model_id, model_name in zip(available_models, available_model_names):
         model_files = list(MODELS_PATH.glob(f"{model_id}.*"))
         if not model_files:

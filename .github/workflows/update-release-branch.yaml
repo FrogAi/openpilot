@@ -1,37 +1,35 @@
 name: Update FrogPilot Branch
 
 on:
-  workflow_dispatch:
-    inputs:
-      scheduled_date:
-        description: "Enter the date to run at (YYYY-MM-DD)"
-        required: true
+  schedule:
+    - cron: "0 19 * * *"
 
 jobs:
   update-branch:
     runs-on: ubuntu-latest
     steps:
-      - name: Wait Until Noon On Scheduled Date
-        run: |
-          SCHEDULED_DATETIME="${{ github.event.inputs.scheduled_date }} 12:00"
-
-          TARGET_TIME=$(TZ="America/Phoenix" date -d "$SCHEDULED_DATETIME" +%s)
-          CURRENT_TIME=$(TZ="America/Phoenix" date +%s)
-
-          echo "Scheduled Time (Phoenix): $SCHEDULED_DATETIME"
-
-          SLEEP_TIME=$((TARGET_TIME - CURRENT_TIME))
-
-          if [ $SLEEP_TIME -gt 0 ]; then
-            echo "Waiting for $SLEEP_TIME seconds until Noon Phoenix Time..."
-            sleep $SLEEP_TIME
-
-          fi
-
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+
+      - name: Check if update is due
+        run: |
+          if [ ! -f .github/update_date ]; then
+            echo "No update_date file found. Skipping update."
+            exit 0
+          fi
+
+          SCHEDULED_DATE=$(cat .github/update_date)
+          CURRENT_DATE=$(TZ="America/Phoenix" date +%F)
+
+          echo "Scheduled Date: $SCHEDULED_DATE"
+          echo "Current Date: $CURRENT_DATE"
+
+          if [ "$SCHEDULED_DATE" != "$CURRENT_DATE" ]; then
+            echo "Not the scheduled date. Exiting."
+            exit 0
+          fi
 
       - name: Set Git Username and Email
         run: |
@@ -63,3 +61,36 @@ jobs:
           " -- --all
 
           git push origin FrogPilot --force
+
+      - name: Update README Last Updated Date
+        run: |
+          DAY=$(TZ="America/Phoenix" date +'%d' | sed 's/^0//')
+          case "$DAY" in
+            1|21|31) SUFFIX="st" ;;
+            2|22) SUFFIX="nd" ;;
+            3|23) SUFFIX="rd" ;;
+            *) SUFFIX="th" ;;
+          esac
+
+          MONTH=$(TZ="America/Phoenix" date +'%B')
+          YEAR=$(TZ="America/Phoenix" date +'%Y')
+          NEW_DATE="**${MONTH} ${DAY}${SUFFIX}, ${YEAR}**"
+          echo "Updating README date to ${NEW_DATE}"
+
+          sed -i '/FrogPilot was last updated on:/ { N; N; s/\(\n\)\n.*$/\1\n'"${NEW_DATE}"'/; }' README.md
+
+          git add README.md
+          git commit -m "Update README last updated date to ${NEW_DATE}"
+          git push origin HEAD
+
+      - name: Remove update trigger file
+        run: |
+          git rm -f .github/update_date
+          git commit -m "Remove update_date file after execution"
+          git push origin HEAD
+
+      - name: Squash Last 3 Commits
+        run: |
+          git reset --soft HEAD~2
+          git commit --amend --no-edit --reset-author
+          git push origin HEAD --force

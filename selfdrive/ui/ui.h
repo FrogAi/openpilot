@@ -253,7 +253,6 @@ typedef struct UIScene {
   int desired_follow;
   int driver_camera_timer;
   int map_style;
-  int minimum_lane_change_speed;
   int model_length;
   int screen_brightness = -1;
   int screen_brightness_onroad = -1;

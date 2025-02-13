@@ -4,6 +4,7 @@
 
 #include <QDateTime>
 #include <QRegularExpression>
+#include <QTimer>
 
 #include "selfdrive/ui/qt/widgets/controls.h"
 
@@ -281,10 +282,11 @@ class FrogPilotParamValueControl : public AbstractControl {
   Q_OBJECT
 public:
   FrogPilotParamValueControl(const QString &param, const QString &title, const QString &desc, const QString &icon,
-                             float min_value, float max_value, const QString &label, const std::map<int, QString> &value_labels = {},
+                             float min_value, float max_value, const QString &label, const std::map<float, QString> &value_labels = {},
                              float interval = 1.0f, bool compact_size = false)
                              : AbstractControl(title, desc, icon),
                                min_value(min_value), max_value(max_value), interval(interval), label(label), value_labels(value_labels) {
+    factor = std::pow(10, std::ceil(-std::log10(interval)));
     key = param.toStdString();
 
     setupButton(decrement_button, "-");
@@ -293,7 +295,7 @@ public:
     value_label = new QLabel(this);
     value_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     value_label->setFixedSize(compact_size ? QSize(175, 100) : QSize(350, 100));
-    value_label->setStyleSheet("QLabel { color: #E0E879; }");
+    value_label->setStyleSheet("QLabel {color: #E0E879;}");
 
     hlayout->addWidget(value_label);
     hlayout->addWidget(&decrement_button);
@@ -301,25 +303,48 @@ public:
 
     QObject::connect(&decrement_button, &QPushButton::pressed, this, &FrogPilotParamValueControl::decrementPressed);
     QObject::connect(&increment_button, &QPushButton::pressed, this, &FrogPilotParamValueControl::incrementPressed);
+
+    long_press_reset_timer.setSingleShot(true);
+    QObject::connect(&long_press_reset_timer, &QTimer::timeout, this, [this]() {
+      previous_long_press = false;
+    });
   }
 
   void decrementPressed() {
-    qint64 now = QDateTime::currentMSecsSinceEpoch();
-    if ((std::lround(value / interval) % 5 == 0) && now - buttonHoldStartTime > decrement_button.autoRepeatDelay()) {
-      value = std::max(value - (interval * 5), min_value);
+    qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+
+    if ((std::lround(value / interval) % 5 == 0) && int(currentTime - last_decrement_time) <= decrement_button.autoRepeatInterval()) {
+      long_press_reset_timer.start(decrement_button.autoRepeatInterval());
+
+      previous_long_press = true;
+
+      value = std::max(value - (5 * interval), min_value);
+    } else if (previous_long_press) {
+      value = std::max(value - (5 * interval), min_value);
     } else {
       value = std::max(value - interval, min_value);
     }
+
+    last_decrement_time = currentTime;
     updateValue();
   }
 
   void incrementPressed() {
-    qint64 now = QDateTime::currentMSecsSinceEpoch();
-    if ((std::lround(value / interval) % 5 == 0) && now - buttonHoldStartTime > increment_button.autoRepeatDelay()) {
-      value = std::min(value + (interval * 5), max_value);
+    qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+
+    if ((std::lround(value / interval) % 5 == 0) && int(currentTime - last_increment_time) <= increment_button.autoRepeatInterval()) {
+      long_press_reset_timer.start(increment_button.autoRepeatInterval());
+
+      previous_long_press = true;
+
+      value = std::min(value + (5 * interval), max_value);
+    } else if (previous_long_press) {
+      value = std::min(value + (5 * interval), max_value);
     } else {
       value = std::min(value + interval, max_value);
     }
+
+    last_increment_time = currentTime;
     updateValue();
   }
 
@@ -328,7 +353,7 @@ public:
   }
 
   void refresh() {
-    value = params.getFloat(key);
+    value = std::clamp(std::round(params.getFloat(key) * factor) / factor, min_value, max_value);
     updateDisplay();
   }
 
@@ -337,7 +362,6 @@ public:
   }
 
   void setupButton(QPushButton &button, const QString &text) {
-    button.installEventFilter(this);
     button.setFixedSize(150, 100);
     button.setText(text);
     button.setAutoRepeat(true);
@@ -354,16 +378,21 @@ public:
   }
 
   void updateValue() {
+    value = std::round(value * factor) / factor;
+
     emit valueChanged(value);
     updateDisplay();
   }
 
   void updateDisplay() {
-    if (value_labels.find(std::nearbyint(value)) != value_labels.end()) {
-      value_label->setText(value_labels.at(std::nearbyint(value)));
-    } else {
-      value_label->setText(QString::number(value, 'f', std::ceil(-std::log10(interval))) + label);
+    QString displayText = QString::number(value) + label;
+
+    std::map<float, QString>::const_iterator lower = value_labels.lower_bound(value - interval / 2);
+    if (lower != value_labels.end() && lower->first <= value + interval / 2) {
+      displayText = lower->second;
     }
+
+    value_label->setText(displayText);
   }
 
 signals:
@@ -372,32 +401,19 @@ signals:
 protected:
   QLabel *value_label;
 
-  bool eventFilter(QObject *obj, QEvent *event) override {
-    if (obj == static_cast<QObject*>(&increment_button)) {
-      if (event->type() == QEvent::MouseButtonPress) {
-        buttonHoldStartTime = QDateTime::currentMSecsSinceEpoch();
-      } else if (event->type() == QEvent::MouseButtonRelease) {
-        buttonHoldStartTime = 0;
-      }
-    } else if (obj == static_cast<QObject*>(&decrement_button)) {
-      if (event->type() == QEvent::MouseButtonPress) {
-        buttonHoldStartTime = QDateTime::currentMSecsSinceEpoch();
-      } else if (event->type() == QEvent::MouseButtonRelease) {
-        buttonHoldStartTime = 0;
-      }
-    }
-    return AbstractControl::eventFilter(obj, event);
-  }
-
 private:
+  bool previous_long_press;
+
   float interval;
+  float factor;
   float max_value;
   float min_value;
   float value;
 
-  qint64 buttonHoldStartTime;
+  qint64 last_decrement_time;
+  qint64 last_increment_time;
 
-  std::map<int, QString> value_labels;
+  std::map<float, QString> value_labels;
 
   std::string key;
 
@@ -407,13 +423,15 @@ private:
   QPushButton increment_button;
 
   QString label;
+
+  QTimer long_press_reset_timer;
 };
 
 class FrogPilotParamValueButtonControl : public FrogPilotParamValueControl {
   Q_OBJECT
 public:
   FrogPilotParamValueButtonControl(const QString &param, const QString &title, const QString &desc, const QString &icon,
-                                   float min_value, float max_value, const QString &label, const std::map<int, QString> &value_labels,
+                                   float min_value, float max_value, const QString &label, const std::map<float, QString> &value_labels,
                                    float interval, const std::vector<QString> &button_params, const std::vector<QString> &button_texts,
                                    bool left_button = false, bool checkable = true, int minimum_button_width = 225)
                                    : FrogPilotParamValueControl(param, title, desc, icon, min_value, max_value, label, value_labels, interval, true),

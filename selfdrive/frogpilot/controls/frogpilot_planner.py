@@ -18,9 +18,7 @@ from openpilot.selfdrive.frogpilot.frogpilot_utilities import calculate_lane_wid
 from openpilot.selfdrive.frogpilot.frogpilot_variables import CRUISING_SPEED, MODEL_LENGTH, NON_DRIVING_GEARS, PLANNER_TIME, THRESHOLD
 
 class FrogPilotPlanner:
-  def __init__(self, error_log):
-    self.error_log = error_log
-
+  def __init__(self):
     self.cem = ConditionalExperimentalMode(self)
     self.frogpilot_acceleration = FrogPilotAcceleration(self)
     self.frogpilot_events = FrogPilotEvents(self)
@@ -58,9 +56,11 @@ class FrogPilotPlanner:
 
     self.frogpilot_acceleration.update(frogpilotCarState, v_ego, frogpilot_toggles)
 
-    run_cem = frogpilot_toggles.conditional_experimental_mode or frogpilot_toggles.force_stops or frogpilot_toggles.green_light_alert or frogpilot_toggles.show_stopping_point
-    if run_cem and (controlsState.enabled or frogpilotCarControl.alwaysOnLateralActive) and carState.gearShifter not in NON_DRIVING_GEARS:
+    if frogpilot_toggles.conditional_experimental_mode and controlsState.enabled and carState.gearShifter not in NON_DRIVING_GEARS:
       self.cem.update(carState, frogpilotCarState, frogpilotNavigation, v_ego, v_lead, frogpilot_toggles)
+    elif frogpilot_toggles.force_stops or frogpilot_toggles.green_light_alert or frogpilot_toggles.show_stopping_point:
+      self.cem.curve_detected = False
+      self.cem.stop_sign_and_light(frogpilotCarState, v_ego, frogpilot_toggles)
     else:
       self.cem.stop_light_detected = False
 
@@ -98,8 +98,8 @@ class FrogPilotPlanner:
     return self.tracking_lead_filter.x >= THRESHOLD**2
 
   def publish(self, sm, pm, toggles_updated):
-    frogpilot_plan_send = messaging.new_message('frogpilotPlan')
-    frogpilot_plan_send.valid = sm.all_checks(service_list=['carState', 'controlsState'])
+    frogpilot_plan_send = messaging.new_message("frogpilotPlan")
+    frogpilot_plan_send.valid = sm.all_checks(service_list=["carState", "controlsState"])
     frogpilotPlan = frogpilot_plan_send.frogpilotPlan
 
     frogpilotPlan.accelerationJerk = float(A_CHANGE_COST * self.frogpilot_following.acceleration_jerk)
@@ -146,4 +146,4 @@ class FrogPilotPlanner:
 
     frogpilotPlan.vCruise = self.v_cruise
 
-    pm.send('frogpilotPlan', frogpilot_plan_send)
+    pm.send("frogpilotPlan", frogpilot_plan_send)

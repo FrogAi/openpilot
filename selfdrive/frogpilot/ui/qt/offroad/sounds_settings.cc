@@ -57,7 +57,7 @@ FrogPilotSoundsPanel::FrogPilotSoundsPanel(FrogPilotSettingsWindow *parent) : Fr
       });
       soundsToggle = alertVolumeControlToggle;
     } else if (alertVolumeControlKeys.find(param) != alertVolumeControlKeys.end()) {
-      std::map<int, QString> volumeLabels;
+      std::map<float, QString> volumeLabels;
       for (int i = 0; i <= 101; ++i) {
         volumeLabels[i] = i == 101 ? tr("Auto") : i == 0 ? tr("Muted") : QString::number(i) + "%";
       }

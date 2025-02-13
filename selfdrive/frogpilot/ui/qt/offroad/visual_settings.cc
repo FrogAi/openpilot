@@ -198,7 +198,7 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
     } else if (param == "PathEdgeWidth") {
       visualToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 100, tr("%"));
     } else if (param == "PathWidth") {
-      visualToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 10, tr(" feet"), std::map<int, QString>(), 0.1);
+      visualToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 10, tr(" feet"), std::map<float, QString>(), 0.1);
 
     } else if (param == "NavigationUI") {
       FrogPilotManageControl *customUIToggle = new FrogPilotManageControl(param, title, desc, icon);
