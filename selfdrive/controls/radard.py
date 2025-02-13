@@ -118,12 +118,23 @@ class Track:
 
     if far:
       lane_position = interp(self.dRel, model_data.laneLines[far_lane_index].x, model_data.laneLines[far_lane_index].y)
-      return self.yRel < lane_position if left else lane_position < self.yRel
+
+      result = self.yRel < lane_position if left else lane_position < self.yRel
     else:
       near_lane = interp(self.dRel, model_data.laneLines[near_lane_index].x, model_data.laneLines[near_lane_index].y)
       far_lane = interp(self.dRel, model_data.laneLines[far_lane_index].x, model_data.laneLines[far_lane_index].y)
 
-      return min(near_lane, far_lane) < self.yRel < max(near_lane, far_lane)
+      result = min(near_lane, far_lane) < self.yRel < max(near_lane, far_lane)
+
+    if result:
+      print(f"Function called with: far={far}, left={left}")
+      print(f"Lane indices determined: near_lane_index={near_lane_index}, far_lane_index={far_lane_index}")
+      if far:
+        print(f"Interpolated lane_position={lane_position}, yRel={self.yRel}")
+      else:
+        print(f"Interpolated lane positions: near_lane={near_lane}, far_lane={far_lane}, yRel={self.yRel}")
+
+    return result
 
   def potential_far_lead(self, model_data: capnp._DynamicStructReader):
     if self.vLeadK < 1:
