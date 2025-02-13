@@ -648,10 +648,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Do you want to compress this backup? The final result will be 2.25x smaller and will run in the background, but can take 10+ minutes.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Backing up...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -665,6 +661,10 @@
     </message>
     <message>
         <source>Are you sure you want to delete all toggle backups?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Do you want to compress this backup? The final result will be significantly smaller and will run in the background.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -833,10 +833,6 @@
         <source>openpilot&apos;s steering control stays active even when the brake or gas pedals are pressed.
 
 Deactivate only occurs with the &apos;Cruise Control&apos; button.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Control with LKAS Button</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1044,10 +1040,6 @@ Deactivate only occurs with the &apos;Cruise Control&apos; button.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source> seconds</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Are you sure you want to completely reset your settings for &apos;Friction&apos;?</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1061,6 +1053,14 @@ Deactivate only occurs with the &apos;Cruise Control&apos; button.</source>
     </message>
     <message>
         <source>Are you sure you want to completely reset your settings for &apos;Steer Ratio&apos;?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enable with LKAS Button</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Instant</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1920,6 +1920,14 @@ This overrides &apos;Conditional Experimental Mode&apos;.</source>
     </message>
     <message>
         <source>Sets the speed limit offset for speeds between 65-99 mph.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> second</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2874,6 +2882,18 @@ Want to submit your own animations? Share them in the &apos;custom-themes&apos; 
     </message>
     <message>
         <source>MANAGE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Lock Doors On Ignition Off After</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Automatically lock the doors after the car&apos;s ignition has been turned off and no one is detected in either of the front seats.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Never</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
