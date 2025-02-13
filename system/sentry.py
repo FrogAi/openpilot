@@ -1,4 +1,5 @@
 """Install exception handler for process crash."""
+import os
 import sentry_sdk
 import traceback
 from datetime import datetime
@@ -15,11 +16,16 @@ from openpilot.system.version import get_build_metadata, get_version
 from openpilot.selfdrive.frogpilot.frogpilot_variables import CRASHES_DIR
 
 class SentryProject(Enum):
-  # python project
-  SELFDRIVE = "https://5ad1714d27324c74a30f9c538bff3b8d@o4505034923769856.ingest.us.sentry.io/4505034930651136"
-  # native project
-  SELFDRIVE_NATIVE = "https://5ad1714d27324c74a30f9c538bff3b8d@o4505034923769856.ingest.us.sentry.io/4505034930651136"
-
+  if "SENTRY_DSN" in os.environ:
+    # python project
+    SELFDRIVE = os.environ["SENTRY_DSN"]
+    # native project
+    SELFDRIVE_NATIVE = os.environ["SENTRY_DSN"]
+  else:
+    # python project
+    SELFDRIVE = ""
+    # native project
+    SELFDRIVE_NATIVE = ""
 
 def report_tombstone(fn: str, message: str, contents: str) -> None:
   cloudlog.error({'tombstone': message})

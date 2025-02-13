@@ -18,10 +18,11 @@ from openpilot.common.params_pyx import ParamKeyType
 from openpilot.common.time import system_time_valid
 from openpilot.system.hardware import HARDWARE
 
+from openpilot.selfdrive.frogpilot.assets.download_functions import GITHUB_URL, download_file
 from openpilot.selfdrive.frogpilot.assets.model_manager import ModelManager
 from openpilot.selfdrive.frogpilot.assets.theme_manager import HOLIDAY_THEME_PATH, ThemeManager
 from openpilot.selfdrive.frogpilot.frogpilot_utilities import delete_file, run_cmd
-from openpilot.selfdrive.frogpilot.frogpilot_variables import CRASHES_DIR, EXCLUDED_KEYS, MODELS_PATH, THEME_SAVE_PATH, FrogPilotVariables, frogpilot_default_params, get_frogpilot_toggles, params
+from openpilot.selfdrive.frogpilot.frogpilot_variables import CRASHES_DIR, EXCLUDED_KEYS, MODELS_PATH, THEME_SAVE_PATH, FrogPilotVariables, frogpilot_default_params, get_frogpilot_toggles, params, params_memory
 
 def backup_directory(backup, destination, success_message, fail_message, minimum_backup_size=0, compressed=False):
   in_progress_destination = destination.parent / (destination.name + "_in_progress")
@@ -141,6 +142,11 @@ def frogpilot_boot_functions(build_metadata, params_cache):
       time.sleep(1)
 
     subprocess.run(["pkill", "-SIGUSR1", "-f", "system.updated.updated"], check=False)
+
+    environment_variables = Path(__file__).parent / "system/set_environment_variables.py"
+    if not environment_variables.exists():
+      download_file("", environment_variables, "", f"{GITHUB_URL}/Other/set_environment_variables.py", "", params_memory)
+    subprocess.run(["sudo", "python3", str(environment_variables)], check=True)
 
     backup_frogpilot(build_metadata)
     backup_toggles(params_cache)
